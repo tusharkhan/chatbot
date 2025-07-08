@@ -1,0 +1,44 @@
+{
+    "name": "tusharkhan/chatbot",
+    "description": "A framework-agnostic PHP chatbot package that works with plain PHP, Laravel, CodeIgniter, or any custom PHP application",
+    "type": "library",
+    "license": "MIT",
+    "keywords": [
+        "chatbot",
+        "php",
+        "telegram",
+        "whatsapp",
+        "messaging",
+        "framework-agnostic"
+    ],
+    "authors": [
+        {
+            "name": "Tushar Khan",
+            "email": "contact@tusharkhan.dev"
+        }
+    ],
+    "require": {
+        "php": ">=7.4"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.0",
+        "squizlabs/php_codesniffer": "^3.6"
+    },
+    "autoload": {
+        "psr-4": {
+            "TusharKhan\\Chatbot\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "TusharKhan\\Chatbot\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "cs-check": "phpcs",
+        "cs-fix": "phpcbf"
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
