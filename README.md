@@ -622,7 +622,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - Create an [Issue](https://github.com/tusharkhan/chatbot/issues) for bug reports
 - Start a [Discussion](https://github.com/tusharkhan/chatbot/discussions) for questions
-- Email: contact@tusharkhan.dev
+- Email: tushar.khan0122@gmail.com
 
 ## 🌟 Star History
 
