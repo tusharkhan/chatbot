@@ -54,6 +54,208 @@ class Bot
     }
 
     /**
+     * Load conversations from JSON file
+     */
+    public function loadConversations(string $jsonFilePath): self
+    {
+        if (!file_exists($jsonFilePath)) {
+            throw new \InvalidArgumentException("JSON file not found: {$jsonFilePath}");
+        }
+
+        $jsonContent = file_get_contents($jsonFilePath);
+        $conversations = json_decode($jsonContent, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new \InvalidArgumentException("Invalid JSON in file: {$jsonFilePath}");
+        }
+
+        if (!isset($conversations['conversations']) || !is_array($conversations['conversations'])) {
+            throw new \InvalidArgumentException("JSON must contain 'conversations' array");
+        }
+
+        foreach ($conversations['conversations'] as $conversation) {
+            $this->loadConversationFromArray($conversation);
+        }
+
+        return $this;
+    }
+
+    /**
+     * Load a single conversation from array
+     */
+    private function loadConversationFromArray(array $conversation): void
+    {
+        if (!isset($conversation['pattern']) || !isset($conversation['response'])) {
+            return; // Skip invalid conversations
+        }
+
+        $pattern = $conversation['pattern'];
+        $response = $conversation['response'];
+        $conditions = $conversation['conditions'] ?? [];
+
+        $this->hears($pattern, function($context) use ($response, $conditions) {
+            // Check conditions if any
+            if (!empty($conditions)) {
+                foreach ($conditions as $condition) {
+                    if (!$this->evaluateCondition($context, $condition)) {
+                        return null; // Don't respond if condition fails
+                    }
+                }
+            }
+
+            // Handle different response types
+            if (is_string($response)) {
+                return $this->processResponseString($response, $context);
+            } elseif (is_array($response)) {
+                return $this->processResponseArray($response, $context);
+            }
+
+            return $response;
+        });
+    }
+
+    /**
+     * Process response string (handle placeholders)
+     */
+    private function processResponseString(string $response, $context): string
+    {
+        // Replace parameter placeholders
+        $params = $context->getParams();
+        foreach ($params as $key => $value) {
+            $response = str_replace("{{$key}}", $value, $response);
+        }
+
+        // Replace conversation data placeholders
+        $conversation = $context->getConversation();
+        preg_match_all('/\{conversation\.([^}]+)\}/', $response, $matches);
+        foreach ($matches[1] as $key) {
+            $value = $conversation->get($key, '');
+            $response = str_replace("{conversation.{$key}}", $value, $response);
+        }
+
+        return $response;
+    }
+
+    /**
+     * Process response array (handle multiple responses or actions)
+     */
+    private function processResponseArray(array $response, $context): ?string
+    {
+        if (isset($response['text'])) {
+            $text = $this->processResponseString($response['text'], $context);
+
+            // Handle actions
+            if (isset($response['actions'])) {
+                foreach ($response['actions'] as $action) {
+                    $this->executeAction($action, $context);
+                }
+            }
+
+            return $text;
+        }
+
+        // Handle random responses
+        if (isset($response['random'])) {
+            $randomResponse = $response['random'][array_rand($response['random'])];
+            return $this->processResponseString($randomResponse, $context);
+        }
+
+        return null;
+    }
+
+    /**
+     * Evaluate a condition
+     */
+    private function evaluateCondition($context, array $condition): bool
+    {
+        $type = $condition['type'] ?? '';
+        $key = $condition['key'] ?? '';
+        $value = $condition['value'] ?? '';
+        $operator = $condition['operator'] ?? '=';
+
+        switch ($type) {
+            case 'conversation':
+                $conversationValue = $context->getConversation()->get($key);
+                return $this->compareValues($conversationValue, $value, $operator);
+
+            case 'param':
+                $paramValue = $context->getParam($key);
+                return $this->compareValues($paramValue, $value, $operator);
+
+            default:
+                return true;
+        }
+    }
+
+    /**
+     * Compare values with operator
+     */
+    private function compareValues($left, $right, string $operator): bool
+    {
+        switch ($operator) {
+            case '=':
+            case '==':
+                return $left == $right;
+            case '!=':
+                return $left != $right;
+            case '>':
+                return $left > $right;
+            case '<':
+                return $left < $right;
+            case 'contains':
+                return strpos($left, $right) !== false;
+            case 'exists':
+                return !empty($left);
+            default:
+                return true;
+        }
+    }
+
+    /**
+     * Execute an action
+     */
+    private function executeAction(array $action, $context): void
+    {
+        $type = $action['type'] ?? '';
+        $key = $action['key'] ?? '';
+        $value = $action['value'] ?? '';
+
+        switch ($type) {
+            case 'set':
+                // Process the value to replace placeholders
+                $processedValue = $this->processActionValue($value, $context);
+                $context->getConversation()->set($key, $processedValue);
+                break;
+            case 'increment':
+                $current = $context->getConversation()->get($key, 0);
+                $context->getConversation()->set($key, $current + 1);
+                break;
+        }
+    }
+
+    /**
+     * Process action value to replace placeholders
+     */
+    private function processActionValue(string $value, $context): string
+    {
+        // Replace parameter placeholders
+        $params = $context->getParams();
+        foreach ($params as $key => $paramValue) {
+            $value = str_replace("{{$key}}", $paramValue, $value);
+        }
+
+        // Replace conversation data placeholders
+        $conversation = $context->getConversation();
+        preg_match_all('/\{conversation\.([^}]+)\}/', $value, $matches);
+        foreach ($matches[1] as $key) {
+            $conversationValue = $conversation->get($key, '');
+            $value = str_replace("{conversation.{$key}}", $conversationValue, $value);
+        }
+
+        return $value;
+    }
+
+    /**
      * Listen for incoming messages
      */
     public function listen(): void
@@ -89,12 +291,12 @@ class Bot
             if ($this->matcher->match($message, $handler['pattern'])) {
                 $params = $this->matcher->extractParams($message, $handler['pattern']);
                 $context->setParams($params);
-                
+
                 $response = $handler['handler']($context);
                 if ($response !== null) {
                     $this->sendResponse($response, $senderId);
                 }
-                
+
                 $handled = true;
                 break;
             }
@@ -117,7 +319,7 @@ class Bot
         if ($this->currentConversation) {
             $this->currentConversation->addMessage('bot', $message);
         }
-        
+
         return $this->driver->sendMessage($message, $senderId);
     }
 

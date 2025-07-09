@@ -5,6 +5,7 @@
 /.vscode/
 /coverage/
 /storage/
+/examples/
 .DS_Store
 .env
 *.log
