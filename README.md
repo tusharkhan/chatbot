@@ -169,6 +169,242 @@ $bot->hears('*', function($context) {
 });
 ```
 
+## 📄 JSON Conversation Files
+
+Define entire conversation flows in JSON files for easier management and non-technical editing:
+
+### Basic Setup
+
+```php
+use TusharKhan\Chatbot\Core\Bot;
+use TusharKhan\Chatbot\Drivers\WebDriver;
+use TusharKhan\Chatbot\Storage\FileStore;
+
+$bot = new Bot(new WebDriver(), new FileStore());
+
+// Load conversations from JSON file
+$bot->loadConversations('conversations.json');
+
+$bot->listen();
+```
+
+### JSON Structure
+
+Create a `conversations.json` file with the following structure:
+
+```json
+{
+  "conversations": [
+    {
+      "pattern": "hello",
+      "response": "Hi there! How can I help you?"
+    },
+    {
+      "pattern": "my name is {name}",
+      "response": {
+        "text": "Nice to meet you, {name}! I'll remember your name.",
+        "actions": [
+          {
+            "type": "set",
+            "key": "name",
+            "value": "{name}"
+          }
+        ]
+      }
+    },
+    {
+      "pattern": "what is my name",
+      "response": "Your name is {conversation.name}",
+      "conditions": [
+        {
+          "type": "conversation",
+          "key": "name",
+          "operator": "exists"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Advanced Features
+
+#### Random Responses
+```json
+{
+  "pattern": "hello",
+  "response": {
+    "random": [
+      "Hi there!",
+      "Hello! Nice to meet you!",
+      "Hey! How are you doing?"
+    ]
+  }
+}
+```
+
+#### Conditional Responses
+```json
+{
+  "pattern": "check status",
+  "response": "You are an adult",
+  "conditions": [
+    {
+      "type": "conversation",
+      "key": "age",
+      "operator": ">",
+      "value": "17"
+    }
+  ]
+}
+```
+
+#### Actions (Set Variables)
+```json
+{
+  "pattern": "set age {age}",
+  "response": {
+    "text": "Age set to {age}",
+    "actions": [
+      {
+        "type": "set",
+        "key": "age",
+        "value": "{age}"
+      }
+    ]
+  }
+}
+```
+
+#### Actions (Increment Counters)
+```json
+{
+  "pattern": "increment",
+  "response": {
+    "text": "Counter incremented!",
+    "actions": [
+      {
+        "type": "increment",
+        "key": "counter"
+      }
+    ]
+  }
+}
+```
+
+### Placeholder Types
+
+#### Parameter Placeholders
+- `{name}` - Extracts parameters from the message pattern
+- `{age}` - Any parameter defined in the pattern
+
+#### Conversation Placeholders
+- `{conversation.name}` - Retrieves stored conversation data
+- `{conversation.age}` - Any key stored in the conversation
+
+### Condition Operators
+
+| Operator | Description | Example |
+|----------|-------------|---------|
+| `=` or `==` | Equal to | `"operator": "=", "value": "admin"` |
+| `!=` | Not equal to | `"operator": "!=", "value": "guest"` |
+| `>` | Greater than | `"operator": ">", "value": "18"` |
+| `<` | Less than | `"operator": "<", "value": "65"` |
+| `contains` | Contains substring | `"operator": "contains", "value": "pizza"` |
+| `exists` | Value exists and is not empty | `"operator": "exists"` |
+
+### Condition Types
+
+#### Conversation Conditions
+Check stored conversation data:
+```json
+{
+  "type": "conversation",
+  "key": "user_role",
+  "operator": "=",
+  "value": "admin"
+}
+```
+
+#### Parameter Conditions
+Check extracted parameters:
+```json
+{
+  "type": "param",
+  "key": "product",
+  "operator": "contains",
+  "value": "premium"
+}
+```
+
+### Complete Example
+
+```json
+{
+  "conversations": [
+    {
+      "pattern": "start shopping",
+      "response": {
+        "text": "Welcome to our store! What would you like to buy?",
+        "actions": [
+          {
+            "type": "set",
+            "key": "shopping",
+            "value": "true"
+          }
+        ]
+      }
+    },
+    {
+      "pattern": "buy {product}",
+      "response": {
+        "text": "Added {product} to your cart! Total items: {conversation.cart_count}",
+        "actions": [
+          {
+            "type": "increment",
+            "key": "cart_count"
+          },
+          {
+            "type": "set",
+            "key": "last_product",
+            "value": "{product}"
+          }
+        ]
+      },
+      "conditions": [
+        {
+          "type": "conversation",
+          "key": "shopping",
+          "operator": "=",
+          "value": "true"
+        }
+      ]
+    },
+    {
+      "pattern": "checkout",
+      "response": "Great! You have {conversation.cart_count} items. Your last item was {conversation.last_product}",
+      "conditions": [
+        {
+          "type": "conversation",
+          "key": "cart_count",
+          "operator": ">",
+          "value": "0"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Benefits of JSON Conversations
+
+- **Easy Management**: Non-technical team members can edit conversations
+- **Version Control**: Track changes in conversation flows
+- **Rapid Prototyping**: Quickly test conversation flows without code changes
+- **Conditional Logic**: Complex branching based on user state
+- **Data Persistence**: Automatic storage and retrieval of conversation data
+- **Scalability**: Organize large conversation trees efficiently
+
 ## 🔌 Middleware
 
 Add custom processing logic:
