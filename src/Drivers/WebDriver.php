@@ -21,6 +21,16 @@ class WebDriver implements DriverInterface
      */
     private function loadFromRequest(): void
     {
+        // CLI support
+        if (php_sapi_name() === 'cli') {
+            global $argv;
+            // $argv[1] = message, $argv[2] = senderId (optional)
+            $this->message = $argv[1] ?? null;
+            $this->senderId = $argv[2] ?? 'cli_' . getmypid();
+            $this->data = [];
+            return;
+        }
+
         // Handle JSON POST data
         if (isset($_SERVER['CONTENT_TYPE']) && strpos($_SERVER['CONTENT_TYPE'], 'application/json') !== false) {
             $input = json_decode(file_get_contents('php://input'), true);
