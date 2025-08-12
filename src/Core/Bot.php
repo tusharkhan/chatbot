@@ -2,6 +2,7 @@
 
 namespace TusharKhan\Chatbot\Core;
 
+use Illuminate\Support\Facades\Log;
 use TusharKhan\Chatbot\Contracts\DriverInterface;
 use TusharKhan\Chatbot\Contracts\StorageInterface;
 use TusharKhan\Chatbot\Storage\ArrayStore;
@@ -16,7 +17,7 @@ class Bot
     private $middleware = [];
     private $currentConversation;
 
-    public function __construct(DriverInterface $driver, StorageInterface $storage = null)
+    public function __construct(DriverInterface $driver, ?StorageInterface $storage = null)
     {
         $this->driver = $driver;
         $this->storage = $storage ?: new ArrayStore();
@@ -293,6 +294,7 @@ class Bot
                 $context->setParams($params);
 
                 $response = $handler['handler']($context);
+                
                 if ($response !== null) {
                     $this->sendResponse($response, $senderId);
                 }

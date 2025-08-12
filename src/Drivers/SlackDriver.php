@@ -19,7 +19,7 @@ class SlackDriver implements DriverInterface
     private ?string $signingSecret = null;
     private bool $isValidRequest = false;
 
-    public function __construct(string $botToken, string $signingSecret = null, array $eventData = null)
+    public function __construct(string $botToken, ?string $signingSecret = null, ?array $eventData = null)
     {
         $this->botToken = $botToken;
         $this->signingSecret = $signingSecret;
