@@ -1,17 +1,19 @@
 # TusharKhan Chatbot Package
 
-A framework-agnostic PHP chatbot package that works seamlessly with plain PHP, Laravel, CodeIgniter, or any custom PHP application. Build powerful chatbots with multi-platform support including Web, Telegram, and WhatsApp.
+A framework-agnostic PHP chatbot package that works seamlessly with plain PHP, Laravel, CodeIgniter, or any custom PHP application. Build powerful chatbots with multi-platform support including Web, Telegram, WhatsApp, and Slack.
 
 ## 🚀 Features
 
 - **Framework Agnostic**: Works with any PHP framework or plain PHP
-- **Multi-Platform Support**: Web, Telegram, WhatsApp drivers included
+- **Multi-Platform Support**: Web, Telegram, WhatsApp, and Slack drivers included
 - **Pattern Matching**: Flexible message routing with parameters, wildcards, and regex
 - **Multi-turn Conversations**: Stateful conversations with context management
 - **Storage Options**: File-based or in-memory storage (easily extensible)
 - **Middleware Support**: Add custom processing logic
 - **Fallback Handling**: Graceful handling of unmatched messages
 - **Easy Setup**: No complex configuration required
+- **Rich Messaging**: Support for buttons, menus, attachments, and interactive components
+- **Modern Slack Features**: Events API, Socket Mode, slash commands, and interactive components
 - **Fully Tested**: Comprehensive unit test coverage
 
 ## 📦 Installation
@@ -87,6 +89,51 @@ $bot = new Bot(new WhatsAppDriver('ACCESS_TOKEN', 'PHONE_NUMBER_ID'));
 
 $bot->hears('hello', function($context) {
     return 'Hello from WhatsApp Business!';
+});
+
+$bot->listen();
+?>
+```
+
+### Slack Bot
+
+```php
+<?php
+use TusharKhan\Chatbot\Core\Bot;
+use TusharKhan\Chatbot\Drivers\SlackDriver;
+
+$bot = new Bot(new SlackDriver('BOT_TOKEN', 'SIGNING_SECRET'));
+
+$bot->hears('hello', function($bot, $message) {
+    $bot->reply('Hello from Slack! 👋');
+});
+
+// Handle slash commands
+$bot->hears('/weather {city}', function($bot, $message, $matches) {
+    $city = $matches['city'];
+    $bot->reply("Weather for {$city}: 22°C, Sunny ☀️");
+});
+
+// Rich messages with interactive buttons
+$bot->hears('menu', function($bot, $message) {
+    $driver = $bot->getDriver();
+    $blocks = [
+        [
+            'type' => 'section',
+            'text' => ['type' => 'mrkdwn', 'text' => 'Choose an option:']
+        ],
+        [
+            'type' => 'actions',
+            'elements' => [
+                [
+                    'type' => 'button',
+                    'text' => ['type' => 'plain_text', 'text' => 'Option 1'],
+                    'action_id' => 'option_1'
+                ]
+            ]
+        ]
+    ];
+    $driver->sendRichMessage('Menu', $blocks);
 });
 
 $bot->listen();
@@ -605,6 +652,50 @@ $bot->middleware(function($context) {
 - `clear()` - Clear all data
 - `addMessage($type, $message)` - Add to history
 - `getHistory()` - Get message history
+
+## 🌐 Supported Platforms
+
+### Web Driver
+- HTTP/AJAX requests
+- Form submissions
+- Session-based conversations
+- JSON/HTML responses
+
+### Telegram Bot API
+- Message handling
+- Inline keyboards
+- File uploads
+- Callback queries
+- Bot commands
+
+### WhatsApp Business API
+- Text messages
+- Media messages
+- Template messages
+- Webhook integration
+
+### Slack API
+- **Events API**: Real-time message events
+- **Slash Commands**: Custom bot commands
+- **Interactive Components**: Buttons, menus, and forms
+- **Rich Messaging**: Block Kit for rich layouts
+- **Mentions & DMs**: App mentions and direct messages
+- **Reactions**: Add/remove emoji reactions
+- **File Operations**: Upload, share, and manage files
+- **Socket Mode**: WebSocket connections for development
+- **User Management**: Get user and channel information
+
+**Slack Features:**
+- ✅ Message Events (`message`, `app_mention`)
+- ✅ Interactive Components (buttons, selects, modals)
+- ✅ Slash Commands (`/command`)
+- ✅ Rich Text Formatting (Block Kit)
+- ✅ Ephemeral Messages (private responses)
+- ✅ Reactions and Emoji
+- ✅ File Uploads and Sharing
+- ✅ User and Channel Information
+- ✅ Message Updates and Deletions
+- ✅ Webhook Signature Verification
 
 ## 🤝 Contributing
 

@@ -8,6 +8,7 @@
         "php",
         "telegram",
         "whatsapp",
+        "slack",
         "messaging",
         "framework-agnostic"
     ],
@@ -18,8 +19,11 @@
         }
     ],
     "require": {
-        "php": ">=7.4",
-        "telegram-bot-sdk/telegram-bot-sdk": "^2.3"
+        "php": ">=8.0",
+        "jolicode/slack-php-api": "^4.8",
+        "symfony/http-client": "^6.0|^7.0",
+        "nyholm/psr7": "^1.8",
+        "irazasyed/telegram-bot-sdk": "^3.9"
     },
     "require-dev": {
         "phpunit/phpunit": "^9.0",
@@ -41,5 +45,10 @@
         "cs-fix": "phpcbf"
     },
     "minimum-stability": "stable",
-    "prefer-stable": true
+    "prefer-stable": true,
+    "config": {
+        "allow-plugins": {
+            "php-http/discovery": true
+        }
+    }
 }
