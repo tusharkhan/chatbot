@@ -2,6 +2,8 @@
 
 namespace TusharKhan\Chatbot\Core;
 
+use Illuminate\Support\Facades\Log;
+
 class Matcher
 {
     /**

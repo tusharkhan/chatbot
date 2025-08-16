@@ -2,10 +2,10 @@
 
 namespace TusharKhan\Chatbot\Core;
 
-use Illuminate\Support\Facades\Log;
 use TusharKhan\Chatbot\Contracts\DriverInterface;
 use TusharKhan\Chatbot\Contracts\StorageInterface;
 use TusharKhan\Chatbot\Storage\ArrayStore;
+use Illuminate\Support\Facades\Log;
 
 class Bot
 {
@@ -294,7 +294,6 @@ class Bot
                 $context->setParams($params);
 
                 $response = $handler['handler']($context);
-                
                 if ($response !== null) {
                     $this->sendResponse($response, $senderId);
                 }

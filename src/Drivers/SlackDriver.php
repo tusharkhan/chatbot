@@ -1,7 +1,6 @@
 <?php
 
 namespace TusharKhan\Chatbot\Drivers;
-
 use JoliCode\Slack\ClientFactory;
 use TusharKhan\Chatbot\Contracts\DriverInterface;
 use JoliCode\Slack\Api\Client;
@@ -74,7 +73,6 @@ class SlackDriver implements DriverInterface
 
         $baseString = 'v0:' . $timestamp . ':' . $body;
         $expectedSignature = 'v0=' . hash_hmac('sha256', $baseString, $this->signingSecret);
-
         return hash_equals($expectedSignature, $signature);
     }
 
@@ -168,7 +166,7 @@ class SlackDriver implements DriverInterface
         $this->message = $commandData['text'] ?? '';
         $this->senderId = $commandData['user_id'] ?? '';
         $this->channelId = $commandData['channel_id'] ?? '';
-        
+
         // Prepend command name to message
         if (isset($commandData['command'])) {
             $this->message = $commandData['command'] . ' ' . $this->message;
@@ -182,7 +180,7 @@ class SlackDriver implements DriverInterface
     {
         $this->senderId = $payload['user']['id'] ?? '';
         $this->channelId = $payload['channel']['id'] ?? '';
-        
+
         // Handle different types of interactions
         $type = $payload['type'] ?? '';
         switch ($type) {
@@ -193,11 +191,11 @@ class SlackDriver implements DriverInterface
                     $this->message = 'action:' . ($action['action_id'] ?? '') . ':' . ($action['value'] ?? '');
                 }
                 break;
-            
+
             case 'view_submission':
                 $this->message = 'form_submission:' . ($payload['view']['callback_id'] ?? '');
                 break;
-            
+
             default:
                 $this->message = 'interaction:' . $type;
                 break;
@@ -223,7 +221,7 @@ class SlackDriver implements DriverInterface
     {
         try {
             $channel = $senderId ?: $this->channelId;
-            
+
             if (!$channel) {
                 return false;
             }
@@ -250,7 +248,7 @@ class SlackDriver implements DriverInterface
     {
         try {
             $channel = $channel ?: $this->channelId;
-            
+
             if (!$channel) {
                 return false;
             }
@@ -283,7 +281,7 @@ class SlackDriver implements DriverInterface
     {
         try {
             $channel = $channel ?: $this->channelId;
-            
+
             if (!$channel) {
                 return false;
             }
@@ -311,7 +309,7 @@ class SlackDriver implements DriverInterface
     {
         try {
             $channel = $channel ?: $this->channelId;
-            
+
             if (!$channel) {
                 return false;
             }
@@ -339,7 +337,7 @@ class SlackDriver implements DriverInterface
     {
         try {
             $channel = $channel ?: $this->channelId;
-            
+
             if (!$channel) {
                 return false;
             }
@@ -366,7 +364,7 @@ class SlackDriver implements DriverInterface
     {
         try {
             $channel = $channel ?: $this->channelId;
-            
+
             if (!$channel) {
                 return false;
             }
@@ -394,7 +392,7 @@ class SlackDriver implements DriverInterface
     {
         try {
             $response = $this->client->usersInfo(['user' => $userId]);
-            
+
             if ($response->getOk()) {
                 $user = $response->getUser();
                 return [
@@ -408,7 +406,7 @@ class SlackDriver implements DriverInterface
                     'timezone' => $user->getTz(),
                 ];
             }
-            
+
             return null;
         } catch (SlackErrorResponse $e) {
             error_log('Slack API Error: ' . $e->getMessage());
@@ -426,7 +424,7 @@ class SlackDriver implements DriverInterface
     {
         try {
             $response = $this->client->conversationsInfo(['channel' => $channelId]);
-            
+
             if ($response->getOk()) {
                 $channel = $response->getChannel();
                 return [
@@ -442,7 +440,7 @@ class SlackDriver implements DriverInterface
                     'num_members' => $channel->getNumMembers(),
                 ];
             }
-            
+
             return null;
         } catch (SlackErrorResponse $e) {
             error_log('Slack API Error: ' . $e->getMessage());
@@ -503,7 +501,7 @@ class SlackDriver implements DriverInterface
         if (!$this->channelId) {
             return false;
         }
-        
+
         // Direct message channels start with 'D'
         return strpos($this->channelId, 'D') === 0;
     }
