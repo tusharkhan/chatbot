@@ -1,6 +1,6 @@
 # Layered Architecture
 
-This document describes the layered architecture of the Chatbot package, explaining how different components interact and the separation of concerns.
+This document describes the layered architecture of the Chatbot package, explaining how different components interact and the separation of concerns, aligned with the current codebase.
 
 ## Architecture Overview
 
@@ -9,23 +9,23 @@ The Chatbot package follows a clean, layered architecture that promotes maintain
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                      Application Layer                     │
-│  (Examples, User Code, Framework Integrations)            │
+│  (Examples, User Code, Framework Integrations)             │
 └─────────────────────────────────────────────────────────────┘
 ┌─────────────────────────────────────────────────────────────┐
 │                       Driver Layer                         │
-│     (WebDriver, TelegramDriver, WhatsAppDriver)           │
+│      (WebDriver, SlackDriver, custom drivers)              │
 └─────────────────────────────────────────────────────────────┘
 ┌─────────────────────────────────────────────────────────────┐
 │                        Core Layer                          │
-│       (Bot, Matcher, Conversation, Context)               │
+│       (Bot, Matcher, Conversation, Context)                │
 └─────────────────────────────────────────────────────────────┘
 ┌─────────────────────────────────────────────────────────────┐
 │                      Storage Layer                         │
-│      (ArrayStore, FileStore, Custom Stores)              │
+│      (ArrayStore, FileStore, Custom Stores)                │
 └─────────────────────────────────────────────────────────────┘
 ┌─────────────────────────────────────────────────────────────┐
 │                     Contract Layer                         │
-│  (Interfaces: DriverInterface, StorageInterface, etc.)    │
+│  (Interfaces: DriverInterface, StorageInterface)           │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -33,158 +33,152 @@ The Chatbot package follows a clean, layered architecture that promotes maintain
 
 ### 1. Contract Layer (Foundation)
 
-**Purpose**: Defines interfaces and contracts that ensure consistency across implementations.
+Purpose: Defines interfaces and contracts that ensure consistency across implementations.
 
-**Components**:
-- `DriverInterface`: Contract for all messaging platform drivers
-- `StorageInterface`: Contract for all storage implementations
-- `MatcherInterface`: Contract for message matching implementations
+Components:
+- DriverInterface: Contract for all messaging platform drivers
+- StorageInterface: Contract for all storage implementations
 
-**Key Characteristics**:
+Key Characteristics:
 - No dependencies on other layers
 - Pure interfaces with no implementation
 - Framework-agnostic contracts
 - Enables dependency injection and testing
 
+Current DriverInterface (from src/Contracts/DriverInterface.php):
 ```php
 namespace TusharKhan\Chatbot\Contracts;
 
 interface DriverInterface
 {
-    public function listen(callable $callback): void;
-    public function reply(string $message, Context $context): void;
+    /** Get the incoming message */
+    public function getMessage(): ?string;
+
+    /** Get the sender ID */
+    public function getSenderId(): ?string;
+
+    /** Send a message */
+    public function sendMessage(string $message, ?string $senderId = null): bool;
+
+    /** Get additional data from the driver */
+    public function getData(): array;
+
+    /** Check if there's an incoming message */
+    public function hasMessage(): bool;
 }
 ```
 
-**Benefits**:
-- Ensures consistent API across implementations
+Benefits:
+- Ensures consistent API across drivers
 - Enables easy mocking for testing
-- Supports multiple implementations of same interface
+- Supports multiple implementations of the same interface
 - Facilitates dependency injection
 
 ### 2. Storage Layer
 
-**Purpose**: Handles data persistence for conversations and bot state.
+Purpose: Handles data persistence for conversations and bot state.
 
-**Components**:
-- `ArrayStore`: In-memory storage for development/testing
-- `FileStore`: File-based storage for simple persistence
+Components:
+- ArrayStore: In-memory storage for development/testing
+- FileStore: File-based storage for simple persistence
 - Custom store implementations (database, Redis, etc.)
 
-**Key Characteristics**:
-- Implements `StorageInterface`
+Key Characteristics:
+- Implements StorageInterface
 - Abstracted from storage medium details
-- Thread-safe operations where applicable
 - Configurable and swappable
 
+Example (from src/Storage/FileStore.php - simplified signatures):
 ```php
-namespace TusharKhan\Chatbot\Storage;
-
 class FileStore implements StorageInterface
 {
-    public function get(string $key): ?array
-    public function put(string $key, array $data): bool
-    public function has(string $key): bool
-    public function forget(string $key): bool
+    public function set(string $key, $value): bool {}
+    public function get(string $key, $default = null) {}
+    public function has(string $key): bool {}
+    public function delete(string $key): bool {}
+    public function clear(): bool {}
+
+    public function getConversation(string $userId): array {}
+    public function setConversation(string $userId, array $data): bool {}
+    public function clearConversation(string $userId): bool {}
 }
 ```
 
-**Design Patterns**:
-- **Repository Pattern**: Abstracts data access
-- **Strategy Pattern**: Interchangeable storage strategies
-- **Factory Pattern**: Storage creation and configuration
+Design Patterns:
+- Repository Pattern: Abstracts data access
+- Strategy Pattern: Interchangeable storage strategies
 
 ### 3. Core Layer
 
-**Purpose**: Contains the main business logic and orchestrates the chatbot functionality.
+Purpose: Contains the main business logic and orchestrates the chatbot functionality.
 
-**Components**:
-- `Bot`: Main orchestrator and entry point
-- `Matcher`: Pattern matching and route resolution
-- `Conversation`: Multi-turn conversation management
-- `Context`: Request/response context and data sharing
+Components:
+- Bot: Main orchestrator and entry point
+- Matcher: Pattern matching and route resolution
+- Conversation: Multi-turn conversation management
+- Context: Request/response context and data sharing
 
-**Key Characteristics**:
+Key Characteristics:
 - Framework-agnostic business logic
-- No knowledge of specific drivers or storage
+- No knowledge of specific drivers or storage implementations
 - Dependency injection for flexibility
-- Comprehensive error handling
 
+Typical Responsibilities (see src/Core/Bot.php and src/Core/Matcher.php):
 ```php
-namespace TusharKhan\Chatbot\Core;
-
 class Bot
 {
-    private MatcherInterface $matcher;
-    private StorageInterface $storage;
-    
-    public function processMessage(Context $context): string
-    {
-        // Core business logic
-    }
+    public function hears($pattern, callable $handler): self {}
+    public function fallback(callable $handler): self {}
+    public function middleware(callable $middleware): self {}
+    public function listen(): void {}
+}
+
+class Matcher
+{
+    public function match(string $message, $pattern): bool {}
+    public function extractParams(string $message, $pattern): array {}
 }
 ```
 
-**Interactions**:
-- Uses Storage Layer through `StorageInterface`
-- Used by Driver Layer for message processing
+Interactions:
+- Uses Storage Layer through StorageInterface
+- Pulls messages from Driver Layer and routes them to handlers
 - Manages Conversation and Context lifecycle
 
 ### 4. Driver Layer
 
-**Purpose**: Handles platform-specific communication and message formatting.
+Purpose: Handles platform-specific communication and message formatting.
 
-**Components**:
-- `WebDriver`: HTTP-based web interface
-- `TelegramDriver`: Telegram Bot API integration
-- `WhatsAppDriver`: WhatsApp Business API integration
+Components (current drivers):
+- WebDriver: HTTP-based web interface (JSON/form/query; supports CLI)
+- SlackDriver: Slack Events, Slash Commands, Interactivity, rich messages
 - Custom driver implementations
 
-**Key Characteristics**:
+Key Characteristics:
 - Platform-specific implementation details
-- Handles authentication and API communication
+- Handles authentication and API communication (e.g., Slack signing secret)
 - Translates between platform formats and core Context
-- Error handling for network and API issues
 
-```php
-namespace TusharKhan\Chatbot\Drivers;
-
-class TelegramDriver implements DriverInterface
-{
-    public function listen(callable $callback): void
-    {
-        // Telegram webhook/polling logic
-        $context = $this->createContext($telegramUpdate);
-        $response = $callback($context);
-        $this->reply($response, $context);
-    }
-}
-```
-
-**Design Patterns**:
-- **Adapter Pattern**: Adapts platform APIs to common interface
-- **Template Method**: Common driver workflow with platform-specific steps
-- **Observer Pattern**: Event-driven message handling
+Common Driver Methods (from DriverInterface): getMessage, getSenderId, sendMessage, getData, hasMessage.
 
 ### 5. Application Layer
 
-**Purpose**: User-facing code that uses the chatbot package.
+Purpose: User-facing code that uses the chatbot package.
 
-**Components**:
-- Example implementations
-- Framework integrations (Laravel, Symfony, etc.)
+Components:
+- Example implementations in examples/
+- Framework integrations (e.g., Laravel route examples in docs)
 - Custom user applications
 - Configuration and setup code
 
-**Key Characteristics**:
+Key Characteristics:
 - Uses the package through public APIs
 - Contains application-specific logic
 - Handles framework integration concerns
-- Manages configuration and environment setup
 
 ## Data Flow Between Layers
 
-### Downward Dependencies
+Downward Dependencies
 ```
 Application → Driver → Core → Storage → Contracts
 ```
@@ -195,156 +189,98 @@ Each layer only depends on layers below it, never above. This ensures:
 - Flexible implementation swapping
 - Clear dependency management
 
-### Upward Communication
+Upward Communication
 ```
 Contracts ← Storage ← Core ← Driver ← Application
 ```
 
 Lower layers communicate upward through:
 - Return values and exceptions
-- Callback functions
-- Event dispatching (potential future enhancement)
+- Method calls into the next layer (e.g., driver->sendMessage)
 
-## Component Interactions
+## Component Interactions (Aligned with Code)
 
-### Bot → Matcher Interaction
+Bot → Matcher Interaction
 ```php
-// Bot delegates pattern matching to Matcher
-$match = $this->matcher->match($message);
-if ($match) {
-    $handler = $match['handler'];
-    $params = $match['params'];
+if ($this->matcher->match($message, $pattern)) {
+    $params = $this->matcher->extractParams($message, $pattern);
+    // invoke handler with context
 }
 ```
 
-### Bot → Storage Interaction
+Bot → Storage Interaction
 ```php
-// Bot uses storage for conversation persistence
-$conversationData = $this->storage->get($userId);
-$conversation = Conversation::fromArray($conversationData);
-
-// After processing
-$this->storage->put($userId, $conversation->toArray());
+// Conversation is loaded and saved via StorageInterface
+$convData = $this->storage->getConversation($userId);
+// ... after processing
+$this->storage->setConversation($userId, $updatedConvData);
 ```
 
-### Driver → Bot Interaction
+Bot → Driver Interaction
 ```php
-// Driver creates context and delegates to Bot
-$context = new Context($messageData);
-$response = $this->bot->processMessage($context);
-$this->reply($response, $context);
+// Handlers typically return a string, which Bot sends via driver
+$this->driver->sendMessage($responseString, $userId);
 ```
 
 ## Design Principles
 
-### 1. Separation of Concerns
+1. Separation of Concerns
 - Each layer has a single, well-defined responsibility
-- No layer contains logic that belongs in another layer
-- Clear boundaries between components
 
-### 2. Dependency Inversion
-- High-level modules don't depend on low-level modules
-- Both depend on abstractions (interfaces)
-- Enables flexible implementation swapping
+2. Dependency Inversion
+- High-level modules depend on abstractions (interfaces)
 
-### 3. Open/Closed Principle
+3. Open/Closed Principle
 - Open for extension through interfaces
-- Closed for modification of core functionality
-- New drivers and storage backends can be added without changing core
 
-### 4. Single Responsibility Principle
+4. Single Responsibility Principle
 - Each class has one reason to change
-- Clear, focused responsibilities
-- Easy to understand and maintain
 
 ## Extension Points
 
-### Custom Driver Implementation
+Custom Driver Implementation (outline)
 ```php
-class SlackDriver implements DriverInterface
-{
-    public function listen(callable $callback): void
-    {
-        // Slack-specific implementation
-    }
-    
-    public function reply(string $message, Context $context): void
-    {
-        // Slack message formatting and sending
-    }
+use TusharKhan\Chatbot\Contracts\DriverInterface;
+
+class MyDriver implements DriverInterface {
+    public function getMessage(): ?string { /* ... */ }
+    public function getSenderId(): ?string { /* ... */ }
+    public function sendMessage(string $message, ?string $senderId = null): bool { /* ... */ }
+    public function getData(): array { /* ... */ }
+    public function hasMessage(): bool { /* ... */ }
 }
 ```
 
-### Custom Storage Implementation
+Custom Storage Implementation (outline)
 ```php
-class RedisStore implements StorageInterface
-{
-    public function get(string $key): ?array
-    {
-        // Redis-specific implementation
-    }
-    
-    // Other interface methods...
-}
-```
+use TusharKhan\Chatbot\Contracts\StorageInterface;
 
-### Custom Matcher Implementation
-```php
-class AIMatcher implements MatcherInterface
-{
-    public function match(string $message): ?array
-    {
-        // AI-powered intent recognition
-    }
-    
-    // Other interface methods...
+class RedisStore implements StorageInterface {
+    // implement interface methods
 }
 ```
 
 ## Testing Strategy
 
-### Unit Testing by Layer
-- **Contract Layer**: Interface compliance testing
-- **Storage Layer**: Data persistence and retrieval testing
-- **Core Layer**: Business logic and flow testing
-- **Driver Layer**: Platform integration testing (with mocks)
+Unit Testing by Layer
+- Storage Layer: Data persistence and retrieval testing
+- Core Layer: Business logic and flow testing
+- Driver Layer: Platform integration testing (with mocks)
 
-### Integration Testing
+Integration Testing
 - Cross-layer interaction testing
 - End-to-end message flow testing
-- Real storage backend testing
 
-### Mock Strategy
+Mock Strategy
 ```php
-// Example: Testing Bot with mocked dependencies
-$mockStorage = $this->createMock(StorageInterface::class);
-$mockMatcher = $this->createMock(MatcherInterface::class);
-
-$bot = new Bot($mockMatcher, $mockStorage);
+$mockDriver = $this->createMock(\TusharKhan\Chatbot\Contracts\DriverInterface::class);
 ```
 
-## Performance Considerations
+## Performance & Security (Highlights)
 
-### Layer Optimization
-- **Driver Layer**: Connection pooling, API rate limiting
-- **Core Layer**: Efficient pattern matching, conversation caching
-- **Storage Layer**: Optimized queries, connection management
+- Driver Layer: API rate limiting (platform-specific)
+- Core Layer: Efficient pattern matching and parameter extraction
+- Storage Layer: JSON read/write efficiency (FileStore), or swap to faster stores
+- Security: Input validation (drivers), Slack signature verification, proper escaping when rendering HTML
 
-### Memory Management
-- Minimal object creation
-- Proper resource cleanup
-- Lazy loading where appropriate
-
-## Security Considerations
-
-### Layer-Specific Security
-- **Driver Layer**: Input validation, authentication
-- **Core Layer**: Business logic validation
-- **Storage Layer**: Data encryption, access control
-
-### Cross-Cutting Concerns
-- Logging and auditing
-- Error handling and sanitization
-- Rate limiting and DoS protection
-
-This layered architecture ensures the chatbot package is maintainable, extensible, and testable while providing clear separation of concerns and flexibility for different use cases.
+This layered architecture reflects the current implementation and should help you reason about extension points and responsibilities accurately.

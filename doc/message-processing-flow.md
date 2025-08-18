@@ -1,6 +1,6 @@
 # Message Processing Flow
 
-This document describes the complete message processing flow in the Chatbot package, from receiving a message to sending a response.
+This document describes the complete message processing flow in the Chatbot package, from receiving a message to sending a response, aligned with the current codebase.
 
 ## Overview
 
@@ -9,242 +9,168 @@ The message processing flow follows a clear pipeline that ensures proper routing
 ## Flow Diagram
 
 ```
-[Driver] → [Bot] → [Matcher] → [Handler] → [Response] → [Driver]
-    ↓         ↓         ↓          ↓           ↓         ↓
- Receive   Process   Match     Execute    Generate   Send
- Message   Input    Pattern   Callback   Response   Output
+[Driver] → [Bot::listen] → [Matcher] → [Handler] → [Bot -> Driver::sendMessage] → [Output]
+  Receive       Orchestrate     Match        Execute            Send via driver        Return
 ```
 
 ## Detailed Flow
 
-### 1. Message Reception
-- **Entry Point**: Driver receives incoming message
-- **Driver Types**: Web, Telegram, WhatsApp, or custom
-- **Data Extraction**: Driver extracts message content and metadata
-- **Context Creation**: Driver creates a Context object with message data
+### 1. Message Reception (Driver)
+- Entry Point: A Driver reads the inbound request/input
+  - WebDriver: reads JSON body, form data, or query string; supports CLI args
+  - SlackDriver: parses php://input or provided array for Events, Slash Commands, and Interactivity
+- Data Extraction: Driver exposes message and metadata via DriverInterface methods
+  - getMessage(): ?string
+  - getSenderId(): ?string
+  - getData(): array
+  - hasMessage(): bool
+
+### 2. Bot Orchestration
+- Initialization: Application creates `new Bot($driver, $storage)` and registers handlers via `$bot->hears()`
+- Processing: `Bot::listen()` pulls the message from the driver, builds a Context, and coordinates matching and response
+- Storage Access: Bot retrieves and persists conversation state via StorageInterface (e.g., FileStore)
 
 ```php
-// Example: WebDriver receiving a message
-$context = new Context([
-    'message' => $_POST['message'] ?? '',
-    'user_id' => session_id(),
-    'driver' => 'web'
-]);
+$bot->hears('hello', function($context) {
+    return 'Hello there!';
+});
+
+$bot->listen();
 ```
 
-### 2. Bot Processing
-- **Initialization**: Bot receives the context from driver
-- **Storage Access**: Bot retrieves conversation state from storage
-- **Conversation Loading**: Existing conversation loaded or new one created
+### 3. Message Matching (Matcher)
+- Pattern Matching: `Matcher->match($message, $pattern)` supports strings, arrays, callables, and regex
+- Parameter Extraction: `Matcher->extractParams($message, $pattern)` fills context params for patterns with `{placeholders}` or regex groups
+- Priority Handling: Patterns are checked in the order registered
+- Fallback: If nothing matches, optional `$bot->fallback()` handler is used
 
 ```php
-// Bot processes the incoming context
-public function processMessage(Context $context): string
-{
-    $userId = $context->get('user_id');
-    $message = $context->get('message');
-    
-    // Load or create conversation
-    $conversation = $this->loadOrCreateConversation($userId);
-    
-    // Continue processing...
-}
-```
-
-### 3. Message Matching
-- **Pattern Matching**: Matcher evaluates message against registered patterns
-- **Priority Handling**: Patterns checked in registration order
-- **Parameter Extraction**: Parameters extracted from matched patterns
-- **Fallback**: Default handler used if no patterns match
-
-```php
-// Matcher finds appropriate handler
-$match = $this->matcher->match($message);
-if ($match) {
-    $handler = $match['handler'];
-    $params = $match['params'];
-} else {
-    $handler = $this->fallbackHandler;
-    $params = [];
+if ($this->matcher->match($message, $pattern)) {
+    $params = $this->matcher->extractParams($message, $pattern);
+    // call handler with context
 }
 ```
 
 ### 4. Handler Execution
-- **Context Preparation**: Context updated with conversation and parameters
-- **Callback Execution**: Registered handler callback is invoked
-- **Response Generation**: Handler generates appropriate response
-- **State Management**: Conversation state updated if needed
+- Context provides:
+  - getMessage(), getSenderId(), getDriver(), getConversation()
+  - getParams(), getParam($key, $default = null)
+- Handler returns either:
+  - a string (preferred) → Bot sends with `driver->sendMessage()`
+  - or null after directly using driver methods (e.g., Slack rich messages)
+- Conversation state can be updated via `getConversation()->set/get/clear()`
 
 ```php
-// Handler execution with full context
-$context->set('conversation', $conversation);
-$context->set('params', $params);
-
-$response = call_user_func($handler, $context);
-```
-
-### 5. Response Processing
-- **Response Validation**: Ensure response is valid string
-- **Context Updates**: Save any context changes
-- **Conversation Persistence**: Save conversation state to storage
-- **Response Formatting**: Format response for specific driver
-
-### 6. Message Delivery
-- **Driver-Specific Formatting**: Format response for target platform
-- **Delivery**: Send response through appropriate channel
-- **Error Handling**: Handle delivery failures gracefully
-
-## Pattern Matching Details
-
-### Exact Matching
-```php
-$bot->hear('hello', function($context) {
-    return 'Hello there!';
-});
-```
-- Message "hello" matches exactly
-- Case-insensitive by default
-- No parameter extraction
-
-### Wildcard Matching
-```php
-$bot->hear('my name is *', function($context) {
-    $name = $context->get('params')[0];
+$bot->hears('my name is {name}', function($context) {
+    $name = $context->getParam('name');
+    $context->getConversation()->set('name', $name);
     return "Nice to meet you, {$name}!";
 });
 ```
-- `*` matches any sequence of characters
-- Captured content available in params array
-- Multiple wildcards supported
 
-### Regex Matching
+### 5. Response Processing & Persistence
+- If a non-empty string is returned by the handler, Bot calls `$driver->sendMessage($response, $senderId)`
+- Bot persists the updated conversation state via `StorageInterface` (e.g., `FileStore::setConversation($userId, $data)`)
+
+### 6. Output Delivery
+- WebDriver:
+  - Responses can be retrieved via `$driver->getResponses()` and output using `$driver->outputJson()` or `$driver->outputHtml()`
+- SlackDriver:
+  - Sends via Slack Web API helpers (e.g., `sendMessage`, `sendRichMessage`, `sendEphemeralMessage`); HTTP handler should respond 200 OK promptly
+
+## Pattern Matching Details (Aligned with Matcher)
+
+### Exact Matching
 ```php
-$bot->hear('/^order (\d+) (.+)$/', function($context) {
-    $quantity = $context->get('params')[0];
-    $item = $context->get('params')[1];
-    return "Ordering {$quantity} {$item}";
+$bot->hears('hello', function($context) {
+    return 'Hello there!';
 });
 ```
-- Full regex power available
-- Capture groups become parameters
-- Must start and end with `/`
 
-## Context Flow
-
-### Context Creation
+### Wildcards
 ```php
-$context = new Context([
-    'message' => $message,
-    'user_id' => $userId,
-    'driver' => $driverName
-]);
+$bot->hears('hello*', function($context) {
+    return 'Hi!';
+});
 ```
 
-### Context Enhancement
+### Parameters
 ```php
-// Bot adds conversation
-$context->set('conversation', $conversation);
-
-// Matcher adds parameters
-$context->set('params', $extractedParams);
-
-// Handler can add custom data
-$context->set('custom_data', $someValue);
+$bot->hears('my name is {name}', function($context) {
+    return 'Nice to meet you, ' . $context->getParam('name');
+});
 ```
 
-### Context Usage
+### Regular Expressions
 ```php
-function orderHandler($context) {
-    $message = $context->get('message');
-    $params = $context->get('params');
-    $conversation = $context->get('conversation');
-    
-    // Process and return response
-    return $response;
-}
+$bot->hears('/^order\s+(\d+)\s+(.+)$/', function($context) {
+    [$qty, $item] = $context->getParams(); // or getParam(0), getParam(1) if implemented
+    return "Ordering {$qty} {$item}";
+});
+```
+
+### Multiple Patterns
+```php
+$bot->hears(['hello', 'hi', 'hey'], function($context) {
+    return 'Hello!';
+});
+```
+
+### Custom Callable Pattern
+```php
+$bot->hears(function($message) {
+    return stripos($message, 'urgent') !== false;
+}, function($context) {
+    return 'I detected an urgent message!';
+});
+```
+
+## Context Flow (Conceptual)
+
+- Bot builds a Context object with message, senderId, driver, storage-backed conversation, and extracted params
+- Handlers use Context getters to read data and update conversation state
+
+```php
+$bot->fallback(function($context) {
+    $msg = trim($context->getMessage() ?? '');
+    if ($msg === '') return null; // ignore empty
+    return "Sorry, I didn't understand that.";
+});
 ```
 
 ## Conversation Management
 
-### State Persistence
-- Conversations automatically saved after each message
-- State includes conversation data and metadata
-- Storage layer handles persistence details
+- Conversation state is per-sender (senderId) and persisted via StorageInterface
+- Typical operations: set(key, value), get(key, default), clear(), setState(), isInState()
 
-### Multi-turn Support
 ```php
-// First turn
-$conversation->remember('step', 'awaiting_name');
-
-// Next turn
-$step = $conversation->get('step');
-if ($step === 'awaiting_name') {
-    $conversation->remember('name', $message);
-    $conversation->remember('step', 'awaiting_email');
-    return 'What\'s your email?';
-}
+$bot->hears('order pizza', function($context) {
+    $context->getConversation()->setState('ordering');
+    return 'What size pizza? (small/medium/large)';
+});
 ```
 
 ## Error Handling
 
-### Pattern Matching Errors
-- Invalid regex patterns logged and skipped
-- Fallback handler ensures response is always generated
-- Graceful degradation maintains user experience
-
-### Handler Errors
-- Exceptions caught and logged
-- Fallback response sent to user
-- Conversation state preserved
-
-### Storage Errors
-- Failed saves logged but don't block response
-- Fallback to temporary state if needed
-- User experience remains smooth
+- Use middleware to add logging and error guarding
+```php
+$bot->middleware(function($context) {
+    // log incoming
+    return true; // continue
+});
+```
+- Handlers can return null to skip sending
+- Slack handlers should keep HTTP responses fast (200 OK), and send messages via driver helpers
 
 ## Performance Considerations
 
-### Pattern Optimization
-- Simple patterns checked before complex regex
-- Early termination when match found
-- Efficient parameter extraction
+- Keep pattern lists concise; order from most specific to least specific
+- Prefer parameter and wildcard patterns over complex regex when possible
+- Use FileStore for simple persistence; swap to faster stores for production if needed
 
-### Storage Efficiency
-- Lazy loading of conversation data
-- Minimal data persistence
-- Configurable storage backends
+## Notes on Drivers
 
-### Memory Management
-- Context objects cleaned up after processing
-- Conversation data cached appropriately
-- Resource-conscious design
+- WebDriver Inputs: JSON body, form fields, or query string; session-based sender ID if missing
+- SlackDriver Inputs: Events API, Slash Commands, Interactivity payloads; optional signature verification; reactions/mentions normalized for matching
 
-## Extension Points
-
-### Custom Matchers
-```php
-class CustomMatcher extends Matcher {
-    protected function matchPattern($pattern, $message) {
-        // Custom matching logic
-        return parent::matchPattern($pattern, $message);
-    }
-}
-```
-
-### Custom Handlers
-```php
-$bot->hear('custom', new CustomHandler());
-```
-
-### Middleware Support
-```php
-// Conceptual - could be added
-$bot->middleware(function($context, $next) {
-    // Pre-processing
-    $response = $next($context);
-    // Post-processing
-    return $response;
-});
-```
-
-This flow ensures that every message is processed consistently while providing flexibility for custom behavior at each step.
+This flow mirrors the current Bot, Matcher, and driver behavior for accurate implementation and troubleshooting.
