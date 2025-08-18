@@ -13,7 +13,7 @@ class FileStore implements StorageInterface
     private $conversations = [];
     private $loaded = false;
 
-    public function __construct(string $basePath = null)
+    public function __construct(?string $basePath = null)
     {
         $this->basePath = $basePath ?: sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'chatbot';
         
@@ -92,12 +92,20 @@ class FileStore implements StorageInterface
         if (file_exists($this->dataFile)) {
             $content = file_get_contents($this->dataFile);
             $this->data = json_decode($content, true) ?: [];
+        } else {
+            // create empty data file if it doesn't exist
+            file_put_contents($this->dataFile, json_encode([]), LOCK_EX);
+            $this->data = [];
         }
 
         // Load conversations
         if (file_exists($this->conversationsFile)) {
             $content = file_get_contents($this->conversationsFile);
             $this->conversations = json_decode($content, true) ?: [];
+        } else {
+            // create empty conversations file if it doesn't exist
+            file_put_contents($this->conversationsFile, json_encode([]), LOCK_EX);
+            $this->conversations = [];
         }
 
         $this->loaded = true;

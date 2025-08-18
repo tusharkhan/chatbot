@@ -49,7 +49,7 @@ class Matcher
         if ($this->isRegex($pattern)) {
             return $this->matchRegex($message, $pattern);
         }
-        
+
         // Exact match
         if ($pattern === $message) {
             return true;
@@ -138,39 +138,39 @@ class Matcher
         // Create regex pattern for matching
         $regexPattern = preg_quote($pattern, '/');
         $regexPattern = preg_replace('/\\\\\\{[^}]+\\\\\\}/', '([^\\s]+)', $regexPattern);
-        
+
         // Try exact match first
         $exactPattern = '/^' . $regexPattern . '$/i';
         if (preg_match($exactPattern, $message, $matches)) {
             array_shift($matches); // Remove full match
-            
+
             // Extract parameter names from original pattern
             if (preg_match_all('/\{([^}]+)\}/', $pattern, $paramNames)) {
                 $paramNames = $paramNames[1];
-                
+
                 $params = [];
                 foreach ($paramNames as $index => $name) {
                     $params[$name] = $matches[$index] ?? null;
                 }
-                
+
                 return $params;
             }
         }
-        
+
         // Try partial match (for patterns that should match at the beginning)
         $partialPattern = '/^' . $regexPattern . '/i';
         if (preg_match($partialPattern, $message, $matches)) {
             array_shift($matches); // Remove full match
-            
+
             // Extract parameter names from original pattern
             if (preg_match_all('/\{([^}]+)\}/', $pattern, $paramNames)) {
                 $paramNames = $paramNames[1];
-                
+
                 $params = [];
                 foreach ($paramNames as $index => $name) {
                     $params[$name] = $matches[$index] ?? null;
                 }
-                
+
                 return $params;
             }
         }
