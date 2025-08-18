@@ -5,9 +5,7 @@ namespace TusharKhan\Chatbot\Drivers;
 use JoliCode\Slack\ClientFactory;
 use TusharKhan\Chatbot\Contracts\DriverInterface;
 use JoliCode\Slack\Api\Client;
-use Illuminate\Support\Facades\Log;
 use JoliCode\Slack\Exception\SlackErrorResponse;
-use Symfony\Component\HttpClient\HttpClient;
 
 class SlackDriver implements DriverInterface
 {

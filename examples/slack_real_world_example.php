@@ -1,5 +1,6 @@
 <?php
 
+// NOTE: This is a Laravel-specific example. The package is framework-agnostic; adapt as needed for other frameworks or vanilla PHP.
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Log;
 use TusharKhan\Chatbot\Drivers\SlackDriver;
