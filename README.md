@@ -1,11 +1,11 @@
 # TusharKhan Chatbot Package
 
-A framework-agnostic PHP chatbot package that works seamlessly with plain PHP, Laravel, CodeIgniter, or any custom PHP application. Build powerful chatbots with multi-platform support including Web, Telegram, WhatsApp, and Slack.
+A framework-agnostic PHP chatbot package that works seamlessly with plain PHP, Laravel, or any custom PHP application. Build powerful chatbots with multi-platform support including Web and Slack.
 
 ## 🚀 Features
 
 - **Framework Agnostic**: Works with any PHP framework or plain PHP
-- **Multi-Platform Support**: Web, Telegram, WhatsApp, and Slack drivers included
+- **Multi-Platform Support**: Web and Slack drivers included
 - **Pattern Matching**: Flexible message routing with parameters, wildcards, and regex
 - **Multi-turn Conversations**: Stateful conversations with context management
 - **Storage Options**: File-based or in-memory storage (easily extensible)
@@ -13,7 +13,7 @@ A framework-agnostic PHP chatbot package that works seamlessly with plain PHP, L
 - **Fallback Handling**: Graceful handling of unmatched messages
 - **Easy Setup**: No complex configuration required
 - **Rich Messaging**: Support for buttons, menus, attachments, and interactive components
-- **Modern Slack Features**: Events API, Socket Mode, slash commands, and interactive components
+- **Modern Slack Features**: Events API, slash commands, and interactive components
 - **Fully Tested**: Comprehensive unit test coverage
 
 ## 📦 Installation
@@ -61,39 +61,6 @@ $driver->outputJson(); // For AJAX
 ?>
 ```
 
-### Telegram Bot
-
-```php
-<?php
-use TusharKhan\Chatbot\Core\Bot;
-use TusharKhan\Chatbot\Drivers\TelegramDriver;
-
-$bot = new Bot(new TelegramDriver('YOUR_BOT_TOKEN'));
-
-$bot->hears('/start', function($context) {
-    return 'Welcome to my Telegram bot!';
-});
-
-$bot->listen();
-?>
-```
-
-### WhatsApp Business Bot
-
-```php
-<?php
-use TusharKhan\Chatbot\Core\Bot;
-use TusharKhan\Chatbot\Drivers\WhatsAppDriver;
-
-$bot = new Bot(new WhatsAppDriver('ACCESS_TOKEN', 'PHONE_NUMBER_ID'));
-
-$bot->hears('hello', function($context) {
-    return 'Hello from WhatsApp Business!';
-});
-
-$bot->listen();
-?>
-```
 
 ### Slack Bot
 
@@ -104,19 +71,19 @@ use TusharKhan\Chatbot\Drivers\SlackDriver;
 
 $bot = new Bot(new SlackDriver('BOT_TOKEN', 'SIGNING_SECRET'));
 
-$bot->hears('hello', function($bot, $message) {
-    $bot->reply('Hello from Slack! 👋');
+$bot->hears('hello', function($context) {
+    return 'Hello from Slack! 👋';
 });
 
 // Handle slash commands
-$bot->hears('/weather {city}', function($bot, $message, $matches) {
-    $city = $matches['city'];
-    $bot->reply("Weather for {$city}: 22°C, Sunny ☀️");
+$bot->hears('/weather {city}', function($context) {
+    $city = $context->getParam('city');
+    return "Weather for {$city}: 22°C, Sunny ☀️";
 });
 
 // Rich messages with interactive buttons
-$bot->hears('menu', function($bot, $message) {
-    $driver = $bot->getDriver();
+$bot->hears('menu', function($context) {
+    $driver = $context->getDriver();
     $blocks = [
         [
             'type' => 'section',
@@ -134,6 +101,7 @@ $bot->hears('menu', function($bot, $message) {
         ]
     ];
     $driver->sendRichMessage('Menu', $blocks);
+    return null; // already sent a rich message
 });
 
 $bot->listen();
@@ -532,35 +500,6 @@ class ChatbotController extends Controller
 }
 ```
 
-### CodeIgniter Integration
-
-```php
-// In a CodeIgniter Controller
-class Chatbot extends CI_Controller
-{
-    public function index()
-    {
-        require_once APPPATH . 'vendor/autoload.php';
-        
-        use TusharKhan\Chatbot\Core\Bot;
-        use TusharKhan\Chatbot\Drivers\WebDriver;
-        
-        $bot = new Bot(new WebDriver());
-        
-        $bot->hears('hello', function($context) {
-            return 'Hello from CodeIgniter!';
-        });
-        
-        $bot->listen();
-        
-        $this->output
-            ->set_content_type('application/json')
-            ->set_output(json_encode([
-                'responses' => $bot->driver()->getResponses()
-            ]));
-    }
-}
-```
 
 ## 🧪 Testing
 
@@ -578,12 +517,12 @@ Run with coverage:
 
 ## 📖 Examples
 
-Check the `examples/` directory for complete working examples:
+- `examples/slack.php` - Full Slack bot with events, slash commands, interactivity, and persistence
 
-- `simple_example.php` - Basic usage
-- `web_example.php` - Full web chatbot with HTML interface
-- `telegram_example.php` - Telegram bot with commands and keyboards
-- `whatsapp_example.php` - WhatsApp Business bot
+Additional guides in doc/:
+- `doc/web-driver-bot.md` - WebDriver bot guide (plain PHP and Laravel)
+- `doc/slack-bot-example.md` - Slack bot setup and real-world example
+- `doc/vanilla-php-bot.md` - Vanilla PHP endpoints for WebDriver and Slack
 
 ## 🔧 Advanced Usage
 
@@ -661,19 +600,6 @@ $bot->middleware(function($context) {
 - Session-based conversations
 - JSON/HTML responses
 
-### Telegram Bot API
-- Message handling
-- Inline keyboards
-- File uploads
-- Callback queries
-- Bot commands
-
-### WhatsApp Business API
-- Text messages
-- Media messages
-- Template messages
-- Webhook integration
-
 ### Slack API
 - **Events API**: Real-time message events
 - **Slash Commands**: Custom bot commands
@@ -681,18 +607,15 @@ $bot->middleware(function($context) {
 - **Rich Messaging**: Block Kit for rich layouts
 - **Mentions & DMs**: App mentions and direct messages
 - **Reactions**: Add/remove emoji reactions
-- **File Operations**: Upload, share, and manage files
-- **Socket Mode**: WebSocket connections for development
 - **User Management**: Get user and channel information
 
-**Slack Features:**
+Supported Slack features in this package:
 - ✅ Message Events (`message`, `app_mention`)
-- ✅ Interactive Components (buttons, selects, modals)
+- ✅ Interactive Components (buttons, selects)
 - ✅ Slash Commands (`/command`)
 - ✅ Rich Text Formatting (Block Kit)
 - ✅ Ephemeral Messages (private responses)
 - ✅ Reactions and Emoji
-- ✅ File Uploads and Sharing
 - ✅ User and Channel Information
 - ✅ Message Updates and Deletions
 - ✅ Webhook Signature Verification
