@@ -13,6 +13,7 @@ class Bot
     private $storage;
     private $matcher;
     private $handlers = [];
+    private $commandHandlers = [];
     private $fallbackHandler;
     private $middleware = [];
     private $currentConversation;
@@ -33,6 +34,16 @@ class Bot
             'pattern' => $pattern,
             'handler' => $handler
         ];
+        return $this;
+    }
+
+    public function on(string $event, callable $handler): self
+    {
+        $this->commandHandlers[] = [
+            'command' => $event,
+            'handler' => $handler
+        ];
+        
         return $this;
     }
 
@@ -257,6 +268,37 @@ class Bot
     }
 
     /**
+     * Check if message is a command and extract command data
+     */
+    private function parseCommand(string $message): ?array
+    {Log::info('Received message: ' . $message);
+        // Check for slash commands (like Slack commands)
+        if (preg_match('/^\/([a-zA-Z0-9_-]+)(?:\s+(.*))?$/', trim($message), $matches)) {
+            return [
+                'command' => $matches[1],
+                'arguments' => isset($matches[2]) ? trim($matches[2]) : '',
+                'args' => isset($matches[2]) ? array_filter(explode(' ', trim($matches[2]))) : []
+            ];
+        }
+
+        return null;
+    }
+
+    /**
+     * Find matching command handler
+     */
+    private function findCommandHandler(string $command): ?array
+    {
+        foreach ($this->commandHandlers as $handler) {
+            if ($handler['command'] === $command) {
+                return $handler;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Listen for incoming messages
      */
     public function listen(): void
@@ -286,20 +328,45 @@ class Bot
             }
         }
 
-        // Find matching handler
+        // Check for commands first
         $handled = false;
-        foreach ($this->handlers as $handler) {
-            if ($this->matcher->match($message, $handler['pattern'])) {
-                $params = $this->matcher->extractParams($message, $handler['pattern']);
-                $context->setParams($params);
+        $commandData = $this->parseCommand($message);
+// Log::info("commandData");
+        if ($commandData) {
+            $commandHandler = $this->findCommandHandler($commandData['command']);
 
-                $response = $handler['handler']($context);
+            if ($commandHandler) {
+                // Set command parameters in context
+                $context->setParams([
+                    'command' => $commandData['command'],
+                    'arguments' => $commandData['arguments'],
+                    'args' => $commandData['args']
+                ]);
+
+                $response = $commandHandler['handler']($context);
                 if ($response !== null) {
                     $this->sendResponse($response, $senderId);
                 }
 
                 $handled = true;
-                break;
+            }
+        }
+
+        // Find matching pattern handler if no command was handled
+        if (!$handled) {
+            foreach ($this->handlers as $handler) {
+                if ($this->matcher->match($message, $handler['pattern'])) {
+                    $params = $this->matcher->extractParams($message, $handler['pattern']);
+                    $context->setParams($params);
+
+                    $response = $handler['handler']($context);
+                    if ($response !== null) {
+                        $this->sendResponse($response, $senderId);
+                    }
+
+                    $handled = true;
+                    break;
+                }
             }
         }
 

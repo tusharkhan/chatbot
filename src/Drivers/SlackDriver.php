@@ -28,15 +28,15 @@ class SlackDriver implements DriverInterface
         
         // Configure SSL for local development environments
         // This is a workaround for common SSL issues in Laragon, XAMPP, and Windows environments
-        $this->configureSSLForLocalDevelopment();
+        // $this->configureSSLForLocalDevelopment();
         
         // Try to create client with custom configuration for local development
-        try {
-            $this->client = $this->createSlackClientWithSSLConfig($this->botToken);
-        } catch (\Exception $e) {
+        // try {
+        //     $this->client = $this->createSlackClientWithSSLConfig($this->botToken);
+        // } catch (\Exception $e) {
             // Fallback to regular client creation
             $this->client = ClientFactory::create($this->botToken);
-        }
+        // }
 
         if ($eventData) {
             $this->parseEventData($eventData);
@@ -76,10 +76,16 @@ class SlackDriver implements DriverInterface
         // Check if we're in a local development environment
         $isLocalDevelopment = (
             PHP_OS_FAMILY === 'Windows' ||
-            $_SERVER['SERVER_NAME'] === 'localhost' ||
+            ($_SERVER['SERVER_NAME'] ?? '') === 'localhost' ||
+            ($_SERVER['SERVER_NAME'] ?? '') === '127.0.0.1' ||
             strpos(strtolower($_SERVER['HTTP_HOST'] ?? ''), 'localhost') !== false ||
             strpos(strtolower($_SERVER['HTTP_HOST'] ?? ''), 'ngrok') !== false ||
-            strpos(strtolower($_SERVER['HTTP_HOST'] ?? ''), '.local') !== false
+            strpos(strtolower($_SERVER['HTTP_HOST'] ?? ''), '.local') !== false ||
+            // Detect PHP built-in development server
+            strpos($_SERVER['SERVER_SOFTWARE'] ?? '', 'PHP') === 0 ||
+            // Detect local IP addresses
+            strpos($_SERVER['SERVER_NAME'] ?? '', '127.0.0.1') !== false ||
+            strpos($_SERVER['SERVER_NAME'] ?? '', '::1') !== false
         );
 
         if ($isLocalDevelopment) {
@@ -263,7 +269,7 @@ class SlackDriver implements DriverInterface
         }
         
         // Common cross-platform paths
-        $homeDir = $_SERVER['HOME'] ?? $_SERVER['USERPROFILE'] ?? null;
+        $homeDir = $this->getHomeDirectory();
         if ($homeDir) {
             $possiblePaths = array_merge($possiblePaths, [
                 // User home directory
@@ -282,6 +288,69 @@ class SlackDriver implements DriverInterface
             if ($path && file_exists($path) && is_readable($path) && filesize($path) > 1000) {
                 return $path;
             }
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Get home directory in a cross-platform way
+     * Handles both CLI and web environments
+     */
+    private function getHomeDirectory(): ?string
+    {
+        // Try different methods to get home directory
+        $homeDir = null;
+        
+        // Method 1: Environment variables (works in CLI)
+        $homeDir = $_SERVER['HOME'] ?? $_ENV['HOME'] ?? getenv('HOME') ?? null;
+        
+        // Method 2: Windows USERPROFILE (works in CLI and sometimes web)
+        if (!$homeDir) {
+            $homeDir = $_SERVER['USERPROFILE'] ?? $_ENV['USERPROFILE'] ?? getenv('USERPROFILE') ?? null;
+        }
+        
+        // Method 3: Use system-specific methods
+        if (!$homeDir) {
+            if (PHP_OS_FAMILY === 'Windows') {
+                // Windows: Try HOMEDRIVE + HOMEPATH
+                $homeDrive = $_SERVER['HOMEDRIVE'] ?? $_ENV['HOMEDRIVE'] ?? getenv('HOMEDRIVE') ?? 'C:';
+                $homePath = $_SERVER['HOMEPATH'] ?? $_ENV['HOMEPATH'] ?? getenv('HOMEPATH');
+                if ($homePath) {
+                    $homeDir = $homeDrive . $homePath;
+                }
+            } else {
+                // Unix-like systems: Try to get from /etc/passwd or common paths
+                $user = $_SERVER['USER'] ?? $_ENV['USER'] ?? getenv('USER') ?? null;
+                
+                // Try to get user from posix functions if available
+                if (!$user && function_exists('posix_geteuid') && function_exists('posix_getpwuid')) {
+                    $pwuid = posix_getpwuid(posix_geteuid());
+                    $user = $pwuid['name'] ?? null;
+                }
+                
+                if ($user) {
+                    $homeDir = '/home/' . $user;
+                    // macOS users are typically in /Users/
+                    if (PHP_OS_FAMILY === 'Darwin') {
+                        $homeDir = '/Users/' . $user;
+                    }
+                }
+            }
+        }
+        
+        // Method 4: Try to execute system command as last resort (only in CLI or if safe)
+        if (!$homeDir && php_sapi_name() === 'cli') {
+            if (PHP_OS_FAMILY === 'Windows') {
+                $homeDir = trim(shell_exec('echo %USERPROFILE%') ?: '');
+            } else {
+                $homeDir = trim(shell_exec('echo $HOME') ?: '');
+            }
+        }
+        
+        // Validate the home directory exists
+        if ($homeDir && is_dir($homeDir)) {
+            return $homeDir;
         }
         
         return null;
@@ -386,7 +455,7 @@ class SlackDriver implements DriverInterface
      */
     private function getUserCertificateDirectory(): ?string
     {
-        $homeDir = $_SERVER['HOME'] ?? $_SERVER['USERPROFILE'] ?? null;
+        $homeDir = $this->getHomeDirectory();
         
         if (!$homeDir) {
             return null;
@@ -409,7 +478,7 @@ class SlackDriver implements DriverInterface
     private function logCertificateError(): void
     {
         $os = PHP_OS_FAMILY;
-        $homeDir = $_SERVER['HOME'] ?? $_SERVER['USERPROFILE'] ?? 'your-home-directory';
+        $homeDir = $this->getHomeDirectory() ?? 'your-home-directory';
         
         $errorMessage = "SSL Certificate Configuration Required for Slack API\n\n" .
             "The SlackDriver couldn't find or download SSL certificates. To fix this:\n\n" .
@@ -471,7 +540,10 @@ class SlackDriver implements DriverInterface
         $isLocalDevelopment = (
             PHP_OS_FAMILY === 'Windows' ||
             strpos(strtolower($_SERVER['HTTP_HOST'] ?? ''), 'localhost') !== false ||
-            strpos(strtolower($_SERVER['HTTP_HOST'] ?? ''), 'ngrok') !== false
+            strpos(strtolower($_SERVER['HTTP_HOST'] ?? ''), 'ngrok') !== false ||
+            strpos($_SERVER['SERVER_SOFTWARE'] ?? '', 'PHP') === 0 ||
+            ($_SERVER['SERVER_NAME'] ?? '') === '127.0.0.1' ||
+            ($_SERVER['SERVER_NAME'] ?? '') === 'localhost'
         );
         
         if ($isLocalDevelopment) {
