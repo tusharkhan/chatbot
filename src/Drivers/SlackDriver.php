@@ -54,7 +54,7 @@ class SlackDriver implements DriverInterface
 
         $this->parseEventData($eventData);
     }
-  
+
 
     /**
      * Verify Slack webhook signature
@@ -233,22 +233,11 @@ class SlackDriver implements DriverInterface
                 'channel' => $channel,
                 'text' => $message,
             ];
-            
+
             $response = $this->client->chatPostMessage($params);
-            
+
             return $response->getOk();
-            
-        } catch (SlackErrorResponse $e) {
-            Log::error('SlackDriver: Slack API Error', [
-                'message' => $e->getMessage(),
-                'code' => $e->getCode()
-            ]);
-            return false;
         } catch (\Exception $e) {
-            Log::error('SlackDriver: General Error', [
-                'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
             return false;
         }
     }

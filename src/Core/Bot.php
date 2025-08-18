@@ -5,7 +5,6 @@ namespace TusharKhan\Chatbot\Core;
 use TusharKhan\Chatbot\Contracts\DriverInterface;
 use TusharKhan\Chatbot\Contracts\StorageInterface;
 use TusharKhan\Chatbot\Storage\ArrayStore;
-use Illuminate\Support\Facades\Log;
 
 class Bot
 {
