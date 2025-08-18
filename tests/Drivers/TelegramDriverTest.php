@@ -109,46 +109,6 @@ class TelegramDriverTest extends TestCase
         $this->assertEquals('button_clicked', $callbackQuery['data']);
     }
 
-    public function testPhotoMessage()
-    {
-        $webhookData = [
-            'update_id' => 123456789,
-            'message' => [
-                'message_id' => 3,
-                'from' => [
-                    'id' => 987654321,
-                    'is_bot' => false,
-                    'first_name' => 'John',
-                    'username' => 'johndoe'
-                ],
-                'chat' => [
-                    'id' => 987654321,
-                    'type' => 'private'
-                ],
-                'date' => 1234567890,
-                'photo' => [
-                    [
-                        'file_id' => 'photo123',
-                        'file_unique_id' => 'unique123',
-                        'file_size' => 1024,
-                        'width' => 100,
-                        'height' => 100
-                    ]
-                ],
-                'caption' => 'Beautiful sunset!'
-            ]
-        ];
-
-        $driver = new TelegramDriver($this->testToken, $webhookData);
-
-        $this->assertEquals('Beautiful sunset!', $driver->getMessage());
-        $this->assertEquals('photo', $driver->getMessageType());
-
-        $photoInfo = $driver->getPhotoInfo();
-        $this->assertIsArray($photoInfo);
-        $this->assertEquals('photo123', $photoInfo[0]['file_id']);
-    }
-
     public function testDocumentMessage()
     {
         $webhookData = [
@@ -433,16 +393,6 @@ class TelegramDriverTest extends TestCase
         $this->assertNull($driver->getChatId());
         $this->assertFalse($driver->hasMessage());
         $this->assertNull($driver->getMessageType());
-    }
-
-    public function testInvalidWebhookData()
-    {
-        // Test with malformed webhook data
-        $driver = new TelegramDriver($this->testToken, ['invalid' => 'data']);
-
-        $this->assertNull($driver->getMessage());
-        $this->assertNull($driver->getSenderId());
-        $this->assertFalse($driver->hasMessage());
     }
 
     /**

@@ -271,7 +271,7 @@ class Bot
      * Check if message is a command and extract command data
      */
     private function parseCommand(string $message): ?array
-    {Log::info('Received message: ' . $message);
+    {
         // Check for slash commands (like Slack commands)
         if (preg_match('/^\/([a-zA-Z0-9_-]+)(?:\s+(.*))?$/', trim($message), $matches)) {
             return [
@@ -331,7 +331,7 @@ class Bot
         // Check for commands first
         $handled = false;
         $commandData = $this->parseCommand($message);
-// Log::info("commandData");
+
         if ($commandData) {
             $commandHandler = $this->findCommandHandler($commandData['command']);
 

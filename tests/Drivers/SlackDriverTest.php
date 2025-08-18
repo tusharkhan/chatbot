@@ -4,8 +4,6 @@ namespace Tests\Drivers;
 
 use PHPUnit\Framework\TestCase;
 use TusharKhan\Chatbot\Drivers\SlackDriver;
-use TusharKhan\Chatbot\Storage\FileStore;
-use TusharKhan\Chatbot\Core\Bot;
 
 class SlackDriverTest extends TestCase
 {
