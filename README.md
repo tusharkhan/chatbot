@@ -323,8 +323,6 @@ composer cs-check
 composer cs-fix
 ```
 
-**Test Results**: 79 tests, 193 assertions (2 minor errors in advanced conversation features)
-
 ## 📖 Examples & Documentation
 
 ### Working Examples
@@ -472,3 +470,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 Made with ❤️ by [Tushar Khan](https://github.com/tusharkhan)
+Portfolio: [tusharkhan.me](https://tusharkhan.me)
