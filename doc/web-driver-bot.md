@@ -1,172 +1,215 @@
 # Web Driver Bot Guide
 
-This guide explains how to build a web-based chatbot using the WebDriver included in this package. The WebDriver lets you connect a simple web UI (form or AJAX) to the chatbot core with zero external dependencies.
+This guide shows how to create web-based chatbots using the WebDriver for HTTP/AJAX applications.
 
-## What You Will Build
-
-- A minimal HTTP endpoint that accepts user messages
-- Bot handlers with parameters, wildcards, and regex
-- Persistent conversation state using FileStore
-- JSON or HTML responses for easy integration with frontends
-- Optional CLI usage for quick testing
-
-## Prerequisites
-
-- PHP 8.0+
-- Composer
-- A simple web server (Laravel, plain PHP with built-in server, etc.)
-
-## Quick Start (Plain PHP)
-
-Create a file like `public/chatbot.php`:
+## Basic Setup
 
 ```php
 <?php
-require_once __DIR__ . '/../vendor/autoload.php';
+require_once 'vendor/autoload.php';
 
 use TusharKhan\Chatbot\Core\Bot;
 use TusharKhan\Chatbot\Drivers\WebDriver;
 use TusharKhan\Chatbot\Storage\FileStore;
 
+// Initialize bot
 $driver = new WebDriver();
-$storage = new FileStore(__DIR__ . '/../storage/chatbot');
+$storage = new FileStore(__DIR__ . '/storage');
 $bot = new Bot($driver, $storage);
 
-// Handlers
+// Add message handlers
 $bot->hears('hello', function($context) {
     return 'Hello! How can I help you?';
 });
 
-$bot->hears('my name is {name}', function($context) {
-    $name = $context->getParam('name');
-    $context->getConversation()->set('name', $name);
-    return "Nice to meet you, {$name}!";
-});
-
-$bot->hears('what is my name', function($context) {
-    $name = $context->getConversation()->get('name', 'unknown');
-    return "Your name is {$name}.";
-});
-
-// Fallback (optional)
-$bot->fallback(function($context) {
-    return "Sorry, I didn't understand that. Try 'hello'.";
-});
-
-// Process
+// Listen for messages
 $bot->listen();
 
-// Output
-// If using fetch/AJAX, return JSON:
-$driver->outputJson();
-
-// For form submissions or server-rendered pages, you can use:
-// $driver->outputHtml();
+// Output responses
+$driver->outputJson(); // For AJAX
+// or $driver->outputHtml(); // For form submissions
+?>
 ```
 
-## Using JSON Conversation Files
+## Plain PHP Integration
 
-You can define flows in JSON and load them:
+### HTML Form Example
 
-```php
-$bot->loadConversations(__DIR__ . '/../conversations.json');
-$bot->listen();
-$driver->outputJson();
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chatbot Example</title>
+</head>
+<body>
+    <div id="chat-container">
+        <div id="messages"></div>
+        <form id="chat-form">
+            <input type="text" id="message-input" placeholder="Type your message...">
+            <button type="submit">Send</button>
+        </form>
+    </div>
+
+    <script>
+        document.getElementById('chat-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const message = document.getElementById('message-input').value;
+            if (!message.trim()) return;
+            
+            // Add user message to chat
+            addMessage('user', message);
+            
+            // Send to bot
+            fetch('bot.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: 'message=' + encodeURIComponent(message)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.responses) {
+                    data.responses.forEach(response => {
+                        addMessage('bot', response);
+                    });
+                }
+            });
+            
+            document.getElementById('message-input').value = '';
+        });
+        
+        function addMessage(sender, message) {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = sender;
+            messageDiv.textContent = message;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+    </script>
+</body>
+</html>
 ```
 
-See README’s “JSON Conversation Files” for full structure and examples.
+## Laravel Integration
 
-## Laravel Example (Controller or Route)
+### Controller Implementation
 
 ```php
-use Illuminate\Support\Facades\Route;
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
 use TusharKhan\Chatbot\Core\Bot;
 use TusharKhan\Chatbot\Drivers\WebDriver;
 use TusharKhan\Chatbot\Storage\FileStore;
 
-Route::match(['GET', 'POST'], '/webbot', function() {
-    $driver = new WebDriver();
-    $storage = new FileStore(storage_path('app/chatbot'));
-    $bot = new Bot($driver, $storage);
+class ChatbotController extends Controller
+{
+    public function handle(Request $request)
+    {
+        $driver = new WebDriver();
+        $storage = new FileStore(storage_path('chatbot'));
+        $bot = new Bot($driver, $storage);
+        
+        // Add your message handlers here
+        $bot->hears('hello', function($context) {
+            return 'Hello from Laravel!';
+        });
+        
+        $bot->listen();
+        
+        return response()->json([
+            'responses' => $driver->getResponses()
+        ]);
+    }
+}
+```
 
-    $bot->hears('ping', fn($c) => 'pong');
+### Routes
 
-    $bot->listen();
+```php
+// routes/web.php
+Route::post('/chatbot', [ChatbotController::class, 'handle']);
+```
 
-    return response()->json([
-        'responses' => $driver->getResponses(),
-        'status' => 'success',
-    ]);
+## Advanced Features
+
+### Session Management
+
+The WebDriver automatically handles session management for conversation persistence:
+
+```php
+// Sessions are automatically managed
+$bot->hears('remember {info}', function($context) {
+    $info = $context->getParam('info');
+    $context->getConversation()->set('remembered_info', $info);
+    return "I'll remember: $info";
+});
+
+$bot->hears('what do you remember', function($context) {
+    $info = $context->getConversation()->get('remembered_info');
+    return $info ? "I remember: $info" : "I don't remember anything yet.";
 });
 ```
 
-## Message Flow and Context
+### Error Handling
 
-- WebDriver reads incoming data from JSON POST body, form fields, or query string:
-  - message: user message
-  - sender_id or user_id: optional; if not provided, WebDriver will create a session-based ID
-- Bot::listen() orchestrates:
-  - Extract message and sender id from driver
-  - Match with registered patterns using Matcher
-  - Build Context (message, senderId, conversation, driver)
-  - Invoke handler and capture returned string (if any)
-  - Send response back via driver->sendMessage
-  - Persist conversation state with storage
-
-Useful Context methods within handlers:
-- getMessage(): string
-- getSenderId(): string
-- getConversation(): Conversation (set/get/clear state)
-- getDriver(): WebDriver instance
-- getParam(key): extracted pattern params (e.g., {name})
-
-## WebDriver API Highlights
-
-From `src/Drivers/WebDriver.php`:
-- __construct(): auto-loads request or CLI args
-- getMessage(): ?string
-- getSenderId(): ?string
-- sendMessage(string $message, ?string $senderId = null): bool
-- getData(): array // all request data
-- hasMessage(): bool
-- getResponses(): array // for returning to client
-- outputJson(): void // JSON response helper
-- outputHtml(): void // simple HTML response helper
-- clearResponses(): void
-
-### Supported Inputs
-
-- JSON POST: `{ "message": "hi", "sender_id": "user-1" }`
-- Form fields: `message`, `sender_id` (or `user_id`)
-- Query string: `?message=hi&sender_id=user-1`
-- Session: if no sender_id is provided, a session-based id is generated
-
-### CLI Mode
-
-For quick testing without HTTP:
-
-```bash
-php public/chatbot.php "hello there" user123
+```php
+$bot->middleware(function($context) {
+    try {
+        return true; // Continue processing
+    } catch (Exception $e) {
+        error_log('Chatbot error: ' . $e->getMessage());
+        $context->getDriver()->sendMessage('Sorry, something went wrong.');
+        return false; // Stop processing
+    }
+});
 ```
 
-- `$argv[1]` = message
-- `$argv[2]` = senderId (optional). If omitted, WebDriver generates `cli_<pid>`.
+### Custom Response Formatting
 
-## Testing Tips
+```php
+// Return multiple messages
+$bot->hears('menu', function($context) {
+    return [
+        "Here's our menu:",
+        "1. Pizza - $12",
+        "2. Burger - $8",
+        "3. Salad - $6"
+    ];
+});
 
-- You can unit test your handlers by instantiating WebDriver and calling sendMessage, then asserting `getResponses()`.
-- See `tests/Drivers/WebDriverTest.php` for examples:
-  - Ensuring messages are collected
-  - Clearing responses between tests
+// Return structured data for frontend
+$bot->hears('status', function($context) {
+    $driver = $context->getDriver();
+    $driver->addResponse([
+        'type' => 'status',
+        'data' => [
+            'online' => true,
+            'users' => 42,
+            'uptime' => '2 days'
+        ]
+    ]);
+    return null;
+});
+```
 
-## Common Pitfalls
+## Deployment Tips
 
-- Not returning your bot responses: Make sure your handler returns a string or sends messages via the driver.
-- Missing sender_id: For persistent conversation per user, supply a stable sender_id or rely on sessions.
-- Mixed content types: If using AJAX, set Content-Type to `application/json` to let WebDriver parse JSON body.
+1. **Storage Directory**: Ensure the storage directory is writable
+2. **Error Logging**: Configure proper error logging for production
+3. **Security**: Validate and sanitize all inputs
+4. **Performance**: Consider using Redis or database storage for high-traffic applications
 
-## Next Steps
+## Example Use Cases
 
-- Add more complex flows via JSON conversation files
-- Introduce middleware for logging and authentication
-- Swap storage to ArrayStore for ephemeral sessions or implement your own StorageInterface
+- Customer support chat widgets
+- Interactive forms and surveys
+- Game bots for web games
+- Educational chatbots
+- E-commerce assistance bots
