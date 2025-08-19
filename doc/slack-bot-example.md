@@ -1,307 +1,409 @@
-# Slack Bot Example Guide
+# Slack Bot Setup and Implementation Guide
 
-This guide walks you through building a production-ready Slack bot using the SlackDriver. It covers Slack App setup, routing events to your app, handling slash commands and interactive buttons, and persisting conversation data.
-
-A complete, real-world example is available at:
-- `examples/slack.php` 
-
-## Features Covered
-
-- Events API handling (messages, mentions, reactions)
-- Slash commands (e.g., `/ticket create ...`)
-- Interactive components (Block Kit buttons)
-- Rich messages with sections, fields, and actions
-- Ephemeral messages, message updates/deletes, and reactions
-- User/channel info helpers
-- Conversation persistence with FileStore
-- Webhook signature verification (Signing Secret)
+This guide shows how to create production-ready Slack bots using the SlackDriver.
 
 ## Prerequisites
 
-- PHP 8.0+
-- Composer
-- A publicly accessible HTTPS URL for Slack to send requests (use ngrok in development)
-- Slack Workspace with permission to create Slack Apps
+1. **Slack App Setup**:
+   - Create a new Slack app at https://api.slack.com/apps
+   - Enable Events API and set your webhook URL
+   - Add bot token scopes: `app_mentions:read`, `chat:write`, `im:read`, `im:write`
+   - Install the app to your workspace
 
-## Slack App Setup
+2. **Environment Variables**:
+```bash
+SLACK_BOT_TOKEN=xoxb-your-bot-token-here
+SLACK_SIGNING_SECRET=your-signing-secret-here
+```
 
-1. Create a Slack App at https://api.slack.com/apps
-2. Add a Bot User and install the app to your workspace to get the Bot User OAuth Token (starts with `xoxb-`)
-3. Set up features:
-   - OAuth & Permissions:
-     - Add required Bot Token Scopes (you can start with): `chat:write`, `channels:read`, `users:read`, `reactions:write`, `commands`
-     - Install (or Reinstall) the app to workspace; copy the Bot User OAuth Token
-   - Event Subscriptions:
-     - Enable Events
-     - Request URL: `https://<your-domain>/slack/webhook`
-     - Subscribe to Bot Events: `message.channels`, `message.groups`, `message.im`, `app_mention`, `reaction_added` (as needed)
-   - Interactivity & Shortcuts:
-     - Enable Interactivity, set Request URL: `https://<your-domain>/slack/webhook`
-   - Slash Commands:
-     - Create commands like `/echo`, Request URL: `https://<your-domain>/slack/webhook`
-   - Basic Information → App Credentials:
-     - Copy Signing Secret
-
-4. Set environment variables in your app:
-   - `SLACK_BOT_TOKEN=xoxb-...`
-   - `SLACK_SIGNING_SECRET=...`
-
-## Vanilla PHP (No Framework) Webhook
-
-For a minimal setup without any framework, create `public/slack.php` as your single endpoint:
+## Basic Implementation
 
 ```php
 <?php
-require_once __DIR__ . '/../vendor/autoload.php';
+require_once 'vendor/autoload.php';
 
 use TusharKhan\Chatbot\Core\Bot;
 use TusharKhan\Chatbot\Drivers\SlackDriver;
 use TusharKhan\Chatbot\Storage\FileStore;
 
-$botToken      = getenv('SLACK_BOT_TOKEN') ?: 'xoxb-your-bot-token';
-$signingSecret = getenv('SLACK_SIGNING_SECRET') ?: 'your-signing-secret';
+// Configuration
+$botToken = $_ENV['SLACK_BOT_TOKEN'];
+$signingSecret = $_ENV['SLACK_SIGNING_SECRET'];
 
-$driver  = new SlackDriver($botToken, $signingSecret); // auto-parses php://input & verifies challenge
-$storage = new FileStore(__DIR__ . '/../storage/chatbot');
-$bot     = new Bot($driver, $storage);
+// Initialize bot
+$driver = new SlackDriver($botToken, $signingSecret);
+$storage = new FileStore(__DIR__ . '/storage');
+$bot = new Bot($driver, $storage);
 
-$bot->hears('hello', fn($c) => 'Hello from Slack! 👋');
-$bot->hears('/echo {text}', fn($c) => 'You said: ' . $c->getParam('text'));
+// Basic message handling
+$bot->hears('hello', function($context) {
+    return 'Hello! 👋 How can I help you?';
+});
 
 $bot->listen();
-
-http_response_code(200);
-echo 'OK';
+?>
 ```
 
-Run locally with:
+## Webhook Endpoint Setup
 
-```bash
-php -S 127.0.0.1:8000 -t public
-```
-
-Then point your Slack App request URL(s) to your domain (or an ngrok HTTPS URL) ending with `/slack.php`.
-
-## Laravel Route Example
-
-The example uses a single route for all Slack traffic (events, commands, interactivity):
+### Laravel Route Example
 
 ```php
-use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Log;
-use TusharKhan\Chatbot\Drivers\SlackDriver;
-use TusharKhan\Chatbot\Storage\FileStore;
-use TusharKhan\Chatbot\Core\Bot;
-
-Route::post('/slack/webhook', function (\Illuminate\Http\Request $request) {
+// routes/api.php
+Route::post('/slack/webhook', function (Request $request) {
     $botToken = env('SLACK_BOT_TOKEN');
     $signingSecret = env('SLACK_SIGNING_SECRET');
-
-    $webhookData = $request->all();
-
-    $driver = new SlackDriver($botToken, $signingSecret, $webhookData);
-    $storage = new FileStore(storage_path('app/chatbot'));
+    
+    $driver = new SlackDriver($botToken, $signingSecret);
+    $storage = new FileStore(storage_path('chatbot'));
     $bot = new Bot($driver, $storage);
-
-    // Register handlers (see sections below)
-    $bot->hears('/help', function($context) {
-            $blocks = [
-                [
-                    'type' => 'section',
-                    'text' => [
-                        'type' => 'mrkdwn',
-                        'text' => "*🤖 Bot Commands Help*\n\nHere are all available commands:"
-                    ]
-                ],
-                [
-                    'type' => 'section',
-                    'fields' => [
-                        [
-                            'type' => 'mrkdwn',
-                            'text' => "*Support Tickets:*\n• `/ticket create [description]`\n• `/ticket list`"
-                        ],
-                        [
-                            'type' => 'mrkdwn',
-                            'text' => "*Team Productivity:*\n• `/standup [status]`\n• `/schedule [title] at [time]`"
-                        ],
-                        [
-                            'type' => 'mrkdwn',
-                            'text' => "*Communication:*\n• `/announce [message]`\n• `@botname hello`"
-                        ],
-                        [
-                            'type' => 'mrkdwn',
-                            'text' => "*General:*\n• `/help` - Show this help\n• `/status` - Bot status"
-                        ]
-                    ]
-                ]
-            ];
-
-            $context->getDriver()->sendRichMessage("Help Center", $blocks);
-            return null;
-        });
-
+    
+    // Add your message handlers
+    $bot->hears('help', function($context) {
+        return 'Available commands: help, status, about';
+    });
+    
     $bot->listen();
-
-    // Respond 200 OK to Slack quickly
+    
     return response('OK', 200);
 });
 ```
 
-The SlackDriver automatically:
-- Verifies URL challenge for Event Subscriptions
-- Parses Events, Slash Commands, and Interactivity payloads
-- Optionally verifies signatures using the signing secret
-
-## Core Patterns and Helpers
-
-- Pattern matching with parameters: `$bot->hears('/ticket create {description}', $handler)`
-- Multiple routes and wildcards supported (see README Matching section)
-- Context methods:
-  - `$context->getMessage()`, `$context->getSenderId()`, `$context->getDriver()`
-  - `$context->getConversation()->get/set/clear()`
-  - `$context->getParam('description')` for `{description}`
-- SlackDriver helpers:
-  - `sendMessage($text, $senderId?)`
-  - `sendRichMessage($text, array $blocks, $channelId = null)`
-  - `sendEphemeralMessage($text, $userId, $channelId = null)`
-  - `updateMessage($ts, $text, $channelId = null)`
-  - `deleteMessage($ts, $channelId = null)`
-  - `addReaction($emoji, $ts, $channelId = null)`
-  - `getUserInfo($userId): ?array`
-  - `getChannelInfo($channelId): ?array`
-  - `isDirectMessage()`, `isMention()`, `isSlashCommand()`, `hasMessage()`
-
-## Real-World Ticket Bot (Key Excerpts)
-
-The example implements a support workflow. Below are condensed pieces; see `examples/slack.php` for the full version.
-
-### Create Ticket
+### Plain PHP Webhook
 
 ```php
+<?php
+// webhook.php
+require_once 'vendor/autoload.php';
+
+use TusharKhan\Chatbot\Core\Bot;
+use TusharKhan\Chatbot\Drivers\SlackDriver;
+use TusharKhan\Chatbot\Storage\FileStore;
+
+try {
+    $driver = new SlackDriver(
+        $_ENV['SLACK_BOT_TOKEN'],
+        $_ENV['SLACK_SIGNING_SECRET']
+    );
+    
+    $bot = new Bot($driver, new FileStore(__DIR__ . '/storage'));
+    
+    // Your message handlers here
+    $bot->hears('ping', function($context) {
+        return 'pong! 🏓';
+    });
+    
+    $bot->listen();
+    
+    http_response_code(200);
+    echo 'OK';
+    
+} catch (Exception $e) {
+    error_log('Slack webhook error: ' . $e->getMessage());
+    http_response_code(500);
+    echo 'Error';
+}
+?>
+```
+
+## Advanced Features
+
+### Slash Commands
+
+```php
+// Handle slash commands
+$bot->hears('/weather {city}', function($context) {
+    $city = $context->getParam('city');
+    
+    // Call weather API (example)
+    $weather = getWeatherData($city);
+    
+    return "🌤️ Weather in {$city}: {$weather['temp']}°C, {$weather['condition']}";
+});
+
 $bot->hears('/ticket create {description}', function($context) {
     $description = $context->getParam('description');
-    $userId = $context->getDriver()->getSenderId();
+    $userId = $context->getSenderId();
+    
+    // Create ticket in your system
+    $ticketId = createSupportTicket($userId, $description);
+    
+    return "✅ Support ticket #{$ticketId} created successfully!";
+});
+```
 
-    $ticketId = 'TICK-' . strtoupper(substr(md5($userId . time()), 0, 6));
+### Interactive Components
 
-    $tickets = $context->getConversation()->get('tickets', []);
-    $tickets[$ticketId] = [
-        'id' => $ticketId,
-        'description' => $description,
-        'status' => 'open',
-        'created_at' => date('Y-m-d H:i:s'),
-        'assigned_to' => null
-    ];
-    $context->getConversation()->set('tickets', $tickets);
-
-    $userInfo = $context->getDriver()->getUserInfo($userId);
-    $userName = $userInfo['real_name'] ?? $userInfo['name'] ?? 'User';
-
+```php
+// Send messages with buttons
+$bot->hears('menu', function($context) {
+    $driver = $context->getDriver();
+    
     $blocks = [
         [
             'type' => 'section',
-            'text' => ['type' => 'mrkdwn', 'text' => "🎫 *Ticket Created Successfully*\n\nHi {$userName}! Your support ticket has been created."]
-        ],
-        [
-            'type' => 'section',
-            'fields' => [
-                ['type' => 'mrkdwn', 'text' => "*Ticket ID:*\n{$ticketId}"],
-                ['type' => 'mrkdwn', 'text' => "*Status:*\n🟡 Open"],
-                ['type' => 'mrkdwn', 'text' => "*Created:*\n" . date('M d, Y H:i')],
-                ['type' => 'mrkdwn', 'text' => "*Priority:*\nNormal"],
+            'text' => [
+                'type' => 'mrkdwn',
+                'text' => 'Choose an option:'
             ]
-        ],
-        [
-            'type' => 'section',
-            'text' => ['type' => 'mrkdwn', 'text' => "*Description:*\n{$description}"]
         ],
         [
             'type' => 'actions',
             'elements' => [
-                ['type' => 'button', 'text' => ['type' => 'plain_text', 'text' => 'View My Tickets'], 'action_id' => 'view_tickets', 'value' => 'view_all'],
-                ['type' => 'button', 'text' => ['type' => 'plain_text', 'text' => 'Update Ticket'], 'action_id' => 'update_ticket', 'value' => $ticketId],
+                [
+                    'type' => 'button',
+                    'text' => ['type' => 'plain_text', 'text' => 'Option 1'],
+                    'action_id' => 'option_1',
+                    'value' => 'option_1'
+                ],
+                [
+                    'type' => 'button',
+                    'text' => ['type' => 'plain_text', 'text' => 'Option 2'],
+                    'action_id' => 'option_2',
+                    'value' => 'option_2'
+                ]
+            ]
+        ]
+    ];
+    
+    $driver->sendRichMessage('Choose your option', $blocks);
+    return null; // Message already sent
+});
+
+// Handle button clicks
+$bot->hears('button_clicked', function($context) {
+    $data = $context->getData();
+    $actionId = $data['actions'][0]['action_id'] ?? null;
+    
+    switch ($actionId) {
+        case 'option_1':
+            return 'You selected Option 1! ✅';
+        case 'option_2':
+            return 'You selected Option 2! ✅';
+        default:
+            return 'Unknown option selected.';
+    }
+});
+```
+
+### Rich Message Formatting
+
+```php
+// Using Slack Block Kit
+$bot->hears('report', function($context) {
+    $driver = $context->getDriver();
+    
+    $blocks = [
+        [
+            'type' => 'header',
+            'text' => [
+                'type' => 'plain_text',
+                'text' => '📊 Daily Report'
             ]
         ],
+        [
+            'type' => 'section',
+            'fields' => [
+                [
+                    'type' => 'mrkdwn',
+                    'text' => '*Sales:* $12,340'
+                ],
+                [
+                    'type' => 'mrkdwn',
+                    'text' => '*Orders:* 45'
+                ],
+                [
+                    'type' => 'mrkdwn',
+                    'text' => '*Customers:* 32'
+                ],
+                [
+                    'type' => 'mrkdwn',
+                    'text' => '*Growth:* +15%'
+                ]
+            ]
+        ],
+        [
+            'type' => 'divider'
+        ],
+        [
+            'type' => 'context',
+            'elements' => [
+                [
+                    'type' => 'mrkdwn',
+                    'text' => 'Generated at ' . date('Y-m-d H:i:s')
+                ]
+            ]
+        ]
     ];
-
-    $context->getDriver()->sendRichMessage('Ticket Management', $blocks);
-    return null; // we already sent a rich message
+    
+    $driver->sendRichMessage(null, $blocks);
+    return null;
 });
 ```
 
-### List Tickets
+### User Management
 
 ```php
-$bot->hears('/ticket list', function($context) {
-    $tickets = $context->getConversation()->get('tickets', []);
-    if (empty($tickets)) {
-        return "📋 You don't have any support tickets yet.\nUse `/ticket create [description]` to create one.";
+// Get user information
+$bot->hears('who am i', function($context) {
+    $driver = $context->getDriver();
+    $userId = $context->getSenderId();
+    
+    try {
+        $userInfo = $driver->getUserInfo($userId);
+        $name = $userInfo['user']['real_name'] ?? 'Unknown';
+        $email = $userInfo['user']['profile']['email'] ?? 'No email';
+        
+        return "👋 You are *{$name}* ({$email})";
+    } catch (Exception $e) {
+        return "Sorry, I couldn't fetch your information.";
     }
-    // build and send blocks to display tickets...
 });
 ```
 
-### Update via Interactive Button
-
-Interactive payloads are parsed and converted into a message like `action:<action_id>:<value>`. The example listens for these and updates tickets accordingly.
+### Error Handling and Logging
 
 ```php
-$bot->hears('action:update_ticket:*', function($context) {
-    $ticketId = $context->getParam(0) ?? null; // or parse from message
-    // ask user for new status, or update directly...
+// Add comprehensive error handling
+$bot->middleware(function($context) {
+    try {
+        $message = $context->getMessage();
+        $userId = $context->getSenderId();
+        
+        // Log all interactions
+        error_log("Slack message from {$userId}: {$message}");
+        
+        return true; // Continue processing
+        
+    } catch (Exception $e) {
+        error_log("Slack middleware error: " . $e->getMessage());
+        $context->getDriver()->sendMessage('Sorry, something went wrong. Please try again.');
+        return false; // Stop processing
+    }
 });
 ```
 
-### Reactions and Mentions
+## Real-World Use Cases
 
-SlackDriver normalizes reaction events and mentions so you can match them:
+### 1. Support Ticket System
 
 ```php
-$bot->hears('reaction_added:*', function($context) {
-    // context->getMessage() like 'reaction_added:thumbsup'
+$bot->hears('/support {issue}', function($context) {
+    $issue = $context->getParam('issue');
+    $userId = $context->getSenderId();
+    
+    // Create ticket
+    $ticketId = createTicket($userId, $issue);
+    
+    // Send confirmation
+    $blocks = [
+        [
+            'type' => 'section',
+            'text' => [
+                'type' => 'mrkdwn',
+                'text' => "✅ *Support Ticket Created*\n\n*Ticket ID:* #{$ticketId}\n*Issue:* {$issue}\n\nOur team will respond within 2 hours."
+            ]
+        ],
+        [
+            'type' => 'actions',
+            'elements' => [
+                [
+                    'type' => 'button',
+                    'text' => ['type' => 'plain_text', 'text' => 'View Ticket'],
+                    'url' => "https://support.yourcompany.com/ticket/{$ticketId}"
+                ]
+            ]
+        ]
+    ];
+    
+    $context->getDriver()->sendRichMessage(null, $blocks);
+    return null;
+});
+```
+
+### 2. Team Productivity Bot
+
+```php
+$bot->hears('/standup', function($context) {
+    $conversation = $context->getConversation();
+    $conversation->setState('standup_yesterday');
+    
+    return "📅 *Daily Standup*\n\nWhat did you work on yesterday?";
 });
 
 $bot->hears('*', function($context) {
-    if ($context->getDriver()->isMention()) {
-        return 'You mentioned me? How can I help?';
+    $conversation = $context->getConversation();
+    $state = $conversation->getState();
+    
+    if ($state === 'standup_yesterday') {
+        $conversation->set('yesterday', $context->getMessage());
+        $conversation->setState('standup_today');
+        return "Great! What are you working on today?";
     }
+    
+    if ($state === 'standup_today') {
+        $conversation->set('today', $context->getMessage());
+        $conversation->setState('standup_blockers');
+        return "Awesome! Any blockers or issues?";
+    }
+    
+    if ($state === 'standup_blockers') {
+        $blockers = $context->getMessage();
+        $yesterday = $conversation->get('yesterday');
+        $today = $conversation->get('today');
+        
+        $conversation->clear();
+        
+        // Post to standup channel
+        $standupSummary = "📋 *Standup Summary*\n\n" .
+                         "*Yesterday:* {$yesterday}\n" .
+                         "*Today:* {$today}\n" .
+                         "*Blockers:* {$blockers}";
+        
+        return "✅ Standup recorded! Summary posted to #standup channel.";
+    }
+    
+    return null;
 });
 ```
 
-## Signature Verification
+## Deployment Checklist
 
-SlackDriver can verify requests using `SLACK_SIGNING_SECRET`:
-- Extracts `X-Slack-Request-Timestamp` and `X-Slack-Signature`
-- Rejects stale requests (>5 minutes)
-- Validates HMAC SHA256 signature over the raw body
+- [ ] Set up proper environment variables
+- [ ] Configure webhook URL in Slack app settings
+- [ ] Test webhook signature verification
+- [ ] Set up error logging and monitoring
+- [ ] Configure rate limiting
+- [ ] Test all interactive components
+- [ ] Set up proper storage permissions
+- [ ] Configure SSL for webhook endpoint
 
-Ensure you pass the raw `$request->all()` to the driver and do not alter the body before the driver reads it.
+## Security Best Practices
 
-## Ephemeral Messages & Reactions
-
-```php
-$driver = $context->getDriver();
-$driver->sendEphemeralMessage('Only you can see this', $context->getSenderId());
-$driver->addReaction('thumbsup', $messageTs, $channelId);
-$driver->updateMessage($messageTs, 'Updated text', $channelId);
-$driver->deleteMessage($messageTs, $channelId);
-```
-
-## Testing and Local Development
-
-- Use PHPUnit to run tests: `composer test`
-- See `tests/Drivers/SlackDriverTest.php` for how different events and payloads are parsed
-- In development, use ngrok to expose your local server to Slack:
-  - `ngrok http http://localhost:8000`
-  - Set Slack request URLs to the ngrok HTTPS URL
+1. **Always verify webhook signatures**
+2. **Use HTTPS for webhook endpoints**
+3. **Validate all user inputs**
+4. **Implement rate limiting**
+5. **Log security events**
+6. **Rotate tokens regularly**
+7. **Use environment variables for secrets**
 
 ## Troubleshooting
 
-- 403/Verification failed: Check `SLACK_SIGNING_SECRET` and system time sync; ensure raw body is intact
-- Event challenge not acknowledged: Your route must allow the driver to echo the `challenge` value once on verification
-- No response to slash command: Respond quickly (HTTP 200), and optionally send updates via `sendMessage`/`sendRichMessage`
-- Missing scopes: Add required scopes in `OAuth & Permissions` and reinstall the app
+### Common Issues
 
-## Full Example
+1. **Webhook not receiving events**: Check URL configuration and SSL certificate
+2. **Signature verification fails**: Ensure signing secret is correct
+3. **Bot not responding**: Check token permissions and scopes
+4. **Rate limiting**: Implement proper delays between API calls
 
-Open `examples/slack.php` for a ready-to-run, full-featured implementation with ticket management, interactive buttons, logging, and persistent storage.
+### Debug Mode
+
+```php
+// Enable debug logging
+$bot->middleware(function($context) {
+    $data = $context->getData();
+    error_log('Slack event data: ' . json_encode($data, JSON_PRETTY_PRINT));
+    return true;
+});
+```
