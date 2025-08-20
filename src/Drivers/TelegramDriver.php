@@ -137,7 +137,7 @@ class TelegramDriver implements DriverInterface
     public function sendMessage(string $message, ?string $senderId = null): bool
     {
         $chatId = $senderId ?: $this->chatId;
-        
+
         if (!$chatId) {
             return false;
         }
@@ -171,7 +171,7 @@ class TelegramDriver implements DriverInterface
     public function sendPhoto(string $photo, string $caption = '', ?string $chatId = null): bool
     {
         $chatId = $chatId ?: $this->chatId;
-        
+
         if (!$chatId) {
             return false;
         }
@@ -219,7 +219,7 @@ class TelegramDriver implements DriverInterface
     public function sendKeyboard(string $message, array $keyboard, ?string $chatId = null): bool
     {
         $chatId = $chatId ?: $this->chatId;
-        
+
         if (!$chatId) {
             return false;
         }

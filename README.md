@@ -18,7 +18,7 @@ A framework-agnostic PHP chatbot package that works seamlessly with plain PHP, L
 - **Easy Setup**: No complex configuration required
 - **Rich Messaging**: Support for buttons, keyboards, attachments, and interactive components
 - **Modern Platform Features**: Events API, slash commands, and interactive components
-- **Fully Tested**: Comprehensive unit test coverage (79 tests, 193 assertions)
+- **Fully Tested**: Comprehensive unit test coverage (79 tests, 202 assertions)
 
 ## 📦 Installation
 

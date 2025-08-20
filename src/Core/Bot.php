@@ -42,7 +42,7 @@ class Bot
             'command' => $event,
             'handler' => $handler
         ];
-        
+
         return $this;
     }
 
@@ -104,7 +104,7 @@ class Bot
         $response = $conversation['response'];
         $conditions = $conversation['conditions'] ?? [];
 
-        $this->hears($pattern, function($context) use ($response, $conditions) {
+        $this->hears($pattern, function ($context) use ($response, $conditions) {
             // Check conditions if any
             if (!empty($conditions)) {
                 foreach ($conditions as $condition) {
@@ -361,10 +361,10 @@ class Bot
                     $response = $handler['handler']($context);
                     if ($response !== null) {
                         $this->sendResponse($response, $senderId);
+                        $handled = true;
+                        break;
                     }
-
-                    $handled = true;
-                    break;
+                    // If response is null, continue to next handler
                 }
             }
         }
@@ -428,60 +428,5 @@ class Bot
                 }
             }
         }
-    }
-}
-
-/**
- * Context class for handlers
- */
-class Context
-{
-    private $driver;
-    private $conversation;
-    private $message;
-    private $senderId;
-    private $params = [];
-
-    public function __construct(DriverInterface $driver, Conversation $conversation, string $message, string $senderId)
-    {
-        $this->driver = $driver;
-        $this->conversation = $conversation;
-        $this->message = $message;
-        $this->senderId = $senderId;
-    }
-
-    public function getMessage(): string
-    {
-        return $this->message;
-    }
-
-    public function getSenderId(): string
-    {
-        return $this->senderId;
-    }
-
-    public function getConversation(): Conversation
-    {
-        return $this->conversation;
-    }
-
-    public function getDriver(): DriverInterface
-    {
-        return $this->driver;
-    }
-
-    public function setParams(array $params): void
-    {
-        $this->params = $params;
-    }
-
-    public function getParams(): array
-    {
-        return $this->params;
-    }
-
-    public function getParam(string $key, $default = null)
-    {
-        return $this->params[$key] ?? $default;
     }
 }

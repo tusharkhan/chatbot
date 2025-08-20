@@ -44,10 +44,10 @@ class MatcherTest extends TestCase
 
     public function testCallableMatch()
     {
-        $pattern = function($message) {
+        $pattern = function ($message) {
             return strpos($message, 'test') !== false;
         };
-        
+
         $this->assertTrue($this->matcher->match('this is a test', $pattern));
         $this->assertFalse($this->matcher->match('hello world', $pattern));
     }

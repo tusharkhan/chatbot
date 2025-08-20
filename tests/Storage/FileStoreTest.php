@@ -39,7 +39,7 @@ class FileStoreTest extends TestCase
     public function testPersistence()
     {
         $this->store->set('persistent_key', 'persistent_value');
-        
+
         // Create a new store instance with the same path
         $newStore = new FileStore($this->tempDir);
         $this->assertEquals('persistent_value', $newStore->get('persistent_key'));
@@ -51,13 +51,13 @@ class FileStoreTest extends TestCase
             'state' => 'ordering',
             'variables' => ['name' => 'John', 'age' => 25]
         ];
-        
+
         $this->store->setConversation('user123', $conversationData);
-        
+
         // Create a new store instance
         $newStore = new FileStore($this->tempDir);
         $retrieved = $newStore->getConversation('user123');
-        
+
         $this->assertEquals($conversationData, $retrieved);
     }
 
@@ -74,7 +74,7 @@ class FileStoreTest extends TestCase
                 ]
             ]
         ];
-        
+
         $newConversation = [
             'state' => 'new',
             'history' => [
@@ -85,13 +85,13 @@ class FileStoreTest extends TestCase
                 ]
             ]
         ];
-        
+
         $this->store->setConversation('old_user', $oldConversation);
         $this->store->setConversation('new_user', $newConversation);
-        
+
         // Cleanup conversations older than 30 days
         $cleaned = $this->store->cleanupOldConversations(30);
-        
+
         $this->assertEquals(1, $cleaned);
         $this->assertEmpty($this->store->getConversation('old_user'));
         $this->assertNotEmpty($this->store->getConversation('new_user'));

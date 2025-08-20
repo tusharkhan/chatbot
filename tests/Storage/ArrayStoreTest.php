@@ -36,7 +36,7 @@ class ArrayStoreTest extends TestCase
     {
         $this->store->set('temp', 'value');
         $this->assertTrue($this->store->has('temp'));
-        
+
         $this->store->delete('temp');
         $this->assertFalse($this->store->has('temp'));
     }
@@ -45,9 +45,9 @@ class ArrayStoreTest extends TestCase
     {
         $this->store->set('key1', 'value1');
         $this->store->set('key2', 'value2');
-        
+
         $this->store->clear();
-        
+
         $this->assertFalse($this->store->has('key1'));
         $this->assertFalse($this->store->has('key2'));
     }
@@ -58,10 +58,10 @@ class ArrayStoreTest extends TestCase
             'state' => 'ordering',
             'variables' => ['name' => 'John']
         ];
-        
+
         $this->store->setConversation('user123', $conversationData);
         $retrieved = $this->store->getConversation('user123');
-        
+
         $this->assertEquals($conversationData, $retrieved);
     }
 
@@ -69,7 +69,7 @@ class ArrayStoreTest extends TestCase
     {
         $this->store->setConversation('user123', ['state' => 'test']);
         $this->assertNotEmpty($this->store->getConversation('user123'));
-        
+
         $this->store->clearConversation('user123');
         $this->assertEmpty($this->store->getConversation('user123'));
     }

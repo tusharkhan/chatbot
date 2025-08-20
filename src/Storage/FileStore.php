@@ -16,14 +16,14 @@ class FileStore implements StorageInterface
     public function __construct(?string $basePath = null)
     {
         $this->basePath = $basePath ?: sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'chatbot';
-        
+
         if (!is_dir($this->basePath)) {
             mkdir($this->basePath, 0755, true);
         }
 
         $this->dataFile = $this->basePath . DIRECTORY_SEPARATOR . 'data.json';
         $this->conversationsFile = $this->basePath . DIRECTORY_SEPARATOR . 'conversations.json';
-        
+
         $this->load();
     }
 
@@ -158,7 +158,7 @@ class FileStore implements StorageInterface
 
         foreach ($this->conversations as $userId => $conversation) {
             $lastActivity = 0;
-            
+
             if (isset($conversation['history'])) {
                 foreach ($conversation['history'] as $message) {
                     if (isset($message['timestamp']) && $message['timestamp'] > $lastActivity) {

@@ -20,9 +20,9 @@ class WebDriverTest extends TestCase
     {
         $driver = new WebDriver();
         $result = $driver->sendMessage('Test response', 'user123');
-        
+
         $this->assertTrue($result);
-        
+
         $responses = $driver->getResponses();
         $this->assertCount(1, $responses);
         $this->assertEquals('Test response', $responses[0]['message']);
@@ -34,7 +34,7 @@ class WebDriverTest extends TestCase
         $driver = new WebDriver();
         $driver->sendMessage('First response');
         $driver->sendMessage('Second response');
-        
+
         $responses = $driver->getResponses();
         $this->assertCount(2, $responses);
         $this->assertEquals('First response', $responses[0]['message']);
@@ -45,9 +45,9 @@ class WebDriverTest extends TestCase
     {
         $driver = new WebDriver();
         $driver->sendMessage('Test response');
-        
+
         $this->assertCount(1, $driver->getResponses());
-        
+
         $driver->clearResponses();
         $this->assertEmpty($driver->getResponses());
     }

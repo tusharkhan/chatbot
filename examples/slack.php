@@ -3,6 +3,7 @@
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use TusharKhan\Chatbot\Core\Bot;
+use TusharKhan\Chatbot\Core\Context;
 use TusharKhan\Chatbot\Drivers\SlackDriver;
 use TusharKhan\Chatbot\Storage\FileStore;
 
@@ -23,7 +24,7 @@ $storage = new FileStore(__DIR__ . '/storage');
 $bot = new Bot($driver, $storage);
 
 // Add middleware for logging
-$bot->middleware(function($context) {
+$bot->middleware(function ($context) {
     error_log("Slack message: " . $context->getMessage() . " from: " . $context->getSenderId());
     return true;
 });
@@ -39,7 +40,6 @@ Route::post('/slack/webhook', function (\Illuminate\Http\Request $request) use (
         $bot->listen();
 
         return response()->json(['status' => 'ok']);
-
     } catch (\Exception $e) {
         Log::error('Slack webhook error:', [
             'message' => $e->getMessage(),
@@ -73,12 +73,12 @@ Route::post('/slack/test-command', function (\Illuminate\Http\Request $request) 
 });
 
 // Simple greeting
-$bot->hears(['hello', 'hi', 'hey'], function($context) {
+$bot->hears(['hello', 'hi', 'hey'], function ($context) {
     return "Hello! 👋 How can I help you today?";
 });
 
 // Handle mentions
-$bot->hears('help', function($context) {
+$bot->hears('help', function ($context) {
     return [
         "Here's what I can do:",
         "• Say `hello` to greet me",
@@ -89,20 +89,20 @@ $bot->hears('help', function($context) {
 });
 
 // Capture name
-$bot->hears('my name is {name}', function($context) {
+$bot->hears('my name is {name}', function ($context) {
     $name = $context->getParam('name');
     $context->getConversation()->set('name', $name);
     return "Nice to meet you, $name! 😊";
 });
 
 // Start survey
-$bot->hears('survey', function($context) {
+$bot->hears('survey', function ($context) {
     $context->getConversation()->setState('survey_rating');
     return "Let's start a quick survey! On a scale of 1-5, how satisfied are you with our service?";
 });
 
 // Handle survey rating
-$bot->hears('/^[1-5]$/', function($context) {
+$bot->hears('/^[1-5]$/', function ($context) {
     $conversation = $context->getConversation();
 
     if ($conversation->isInState('survey_rating')) {
@@ -116,7 +116,7 @@ $bot->hears('/^[1-5]$/', function($context) {
 });
 
 // Handle survey feedback
-$bot->hears('*', function($context) {
+$bot->hears('*', function ($context) {
     $conversation = $context->getConversation();
 
     if ($conversation->isInState('survey_feedback')) {
@@ -135,7 +135,7 @@ $bot->hears('*', function($context) {
 });
 
 // Fallback for unmatched messages
-$bot->fallback(function($context) {
+$bot->fallback(function ($context) {
     return "I didn't understand that. Type `help` to see what I can do! 🤖";
 });
 
@@ -148,4 +148,3 @@ if ($driver->hasMessage()) {
     http_response_code(200);
     echo "No message to process";
 }
-

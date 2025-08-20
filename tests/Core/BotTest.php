@@ -4,6 +4,7 @@ namespace TusharKhan\Chatbot\Tests\Core;
 
 use PHPUnit\Framework\TestCase;
 use TusharKhan\Chatbot\Core\Bot;
+use TusharKhan\Chatbot\Core\Context;
 use TusharKhan\Chatbot\Tests\Mocks\MockDriver;
 use TusharKhan\Chatbot\Storage\ArrayStore;
 
@@ -23,8 +24,8 @@ class BotTest extends TestCase
     public function testSimpleMessageHandling()
     {
         $this->driver->setIncomingMessage('hello', 'user123');
-        
-        $this->bot->hears('hello', function($context) {
+
+        $this->bot->hears('hello', function ($context) {
             return 'Hi there!';
         });
 
@@ -38,8 +39,8 @@ class BotTest extends TestCase
     public function testParameterExtraction()
     {
         $this->driver->setIncomingMessage('my name is John', 'user123');
-        
-        $this->bot->hears('my name is {name}', function($context) {
+
+        $this->bot->hears('my name is {name}', function ($context) {
             $name = $context->getParam('name');
             return "Nice to meet you, $name!";
         });
@@ -54,12 +55,12 @@ class BotTest extends TestCase
     public function testFallbackHandler()
     {
         $this->driver->setIncomingMessage('unknown command', 'user123');
-        
-        $this->bot->hears('hello', function($context) {
+
+        $this->bot->hears('hello', function ($context) {
             return 'Hi!';
         });
 
-        $this->bot->fallback(function($context) {
+        $this->bot->fallback(function ($context) {
             return "I don't understand that.";
         });
 
@@ -72,8 +73,8 @@ class BotTest extends TestCase
     public function testMultiplePatterns()
     {
         $this->driver->setIncomingMessage('hi', 'user123');
-        
-        $this->bot->hears(['hello', 'hi', 'hey'], function($context) {
+
+        $this->bot->hears(['hello', 'hi', 'hey'], function ($context) {
             return 'Hello!';
         });
 
@@ -86,8 +87,8 @@ class BotTest extends TestCase
     public function testConversationState()
     {
         $this->driver->setIncomingMessage('start order', 'user123');
-        
-        $this->bot->hears('start order', function($context) {
+
+        $this->bot->hears('start order', function ($context) {
             $context->getConversation()->setState('ordering');
             return 'What would you like to order?';
         });
@@ -102,14 +103,14 @@ class BotTest extends TestCase
     public function testMiddleware()
     {
         $this->driver->setIncomingMessage('hello', 'user123');
-        
+
         $middlewareExecuted = false;
-        $this->bot->middleware(function($context) use (&$middlewareExecuted) {
+        $this->bot->middleware(function ($context) use (&$middlewareExecuted) {
             $middlewareExecuted = true;
             return true; // Continue processing
         });
 
-        $this->bot->hears('hello', function($context) {
+        $this->bot->hears('hello', function ($context) {
             return 'Hi!';
         });
 
@@ -121,8 +122,8 @@ class BotTest extends TestCase
     public function testMiddlewareCanStopProcessing()
     {
         $this->driver->setIncomingMessage('blocked', 'user123');
-        
-        $this->bot->middleware(function($context) {
+
+        $this->bot->middleware(function ($context) {
             if ($context->getMessage() === 'blocked') {
                 return false; // Stop processing
             }
@@ -130,7 +131,7 @@ class BotTest extends TestCase
         });
 
         $handlerExecuted = false;
-        $this->bot->hears('blocked', function($context) use (&$handlerExecuted) {
+        $this->bot->hears('blocked', function ($context) use (&$handlerExecuted) {
             $handlerExecuted = true;
             return 'This should not execute';
         });
@@ -145,8 +146,8 @@ class BotTest extends TestCase
     public function testArrayResponse()
     {
         $this->driver->setIncomingMessage('info', 'user123');
-        
-        $this->bot->hears('info', function($context) {
+
+        $this->bot->hears('info', function ($context) {
             return [
                 'Here is some information:',
                 'Line 1',
@@ -308,6 +309,7 @@ class BotTest extends TestCase
         $this->bot->listen();
 
         $responses = $this->driver->getResponses();
+        $this->assertNotEmpty($responses, 'No responses received');
         $this->assertEquals('No status set yet', $responses[0]['message']);
 
         // Set status
@@ -316,6 +318,7 @@ class BotTest extends TestCase
         $this->bot->listen();
 
         $responses = $this->driver->getResponses();
+        $this->assertNotEmpty($responses, 'No responses received after setting status');
         $this->assertEquals('Status set to active', $responses[0]['message']);
 
         // Check status again
@@ -324,6 +327,7 @@ class BotTest extends TestCase
         $this->bot->listen();
 
         $responses = $this->driver->getResponses();
+        $this->assertNotEmpty($responses, 'No responses received after checking status');
         $this->assertEquals('Your status is active', $responses[0]['message']);
 
         unlink($jsonPath);
@@ -454,6 +458,7 @@ class BotTest extends TestCase
         $this->bot->listen();
 
         $responses = $this->driver->getResponses();
+        $this->assertNotEmpty($responses, 'No responses received for adult check');
         $this->assertEquals('You are an adult', $responses[0]['message']);
 
         // Test minor case
@@ -466,6 +471,7 @@ class BotTest extends TestCase
         $this->bot->listen();
 
         $responses = $this->driver->getResponses();
+        $this->assertNotEmpty($responses, 'No responses received for minor check');
         $this->assertEquals('You are a minor', $responses[0]['message']);
 
         unlink($jsonPath);

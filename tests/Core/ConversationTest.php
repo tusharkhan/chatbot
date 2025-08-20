@@ -40,7 +40,7 @@ class ConversationTest extends TestCase
     {
         $this->conversation->set('temp', 'value');
         $this->assertTrue($this->conversation->has('temp'));
-        
+
         $this->conversation->remove('temp');
         $this->assertFalse($this->conversation->has('temp'));
     }

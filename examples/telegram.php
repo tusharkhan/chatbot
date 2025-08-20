@@ -3,6 +3,7 @@
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use TusharKhan\Chatbot\Core\Bot;
+use TusharKhan\Chatbot\Core\Context;
 use TusharKhan\Chatbot\Drivers\TelegramDriver;
 use TusharKhan\Chatbot\Storage\FileStore;
 
@@ -15,19 +16,19 @@ $storage = new FileStore(__DIR__ . '/storage');
 $bot = new Bot($driver, $storage);
 
 // Add middleware for logging
-$bot->middleware(function($context) {
+$bot->middleware(function ($context) {
     error_log("Telegram message: " . $context->getMessage() . " from: " . $context->getSenderId());
     return true;
 });
 
 // Handle /start command
-$bot->hears(['/start', 'start'], function($context) {
+$bot->hears(['/start', 'start'], function ($context) {
     $name = $context->getData()['from']['first_name'] ?? 'there';
     return "Welcome to our bot, $name! 🤖\n\nType /help to see what I can do.";
 });
 
 // Handle /help command
-$bot->hears(['/help', 'help'], function($context) {
+$bot->hears(['/help', 'help'], function ($context) {
     return [
         "🤖 *Bot Commands:*",
         "",
@@ -42,20 +43,20 @@ $bot->hears(['/help', 'help'], function($context) {
 });
 
 // Capture user name
-$bot->hears('my name is {name}', function($context) {
+$bot->hears('my name is {name}', function ($context) {
     $name = $context->getParam('name');
     $context->getConversation()->set('user_name', $name);
     return "Nice to meet you, $name! 😊\n\nNow I'll remember your name.";
 });
 
 // Start food ordering
-$bot->hears(['order', '/order'], function($context) {
+$bot->hears(['order', '/order'], function ($context) {
     $context->getConversation()->setState('ordering_category');
     return "🍽️ *Food Ordering*\n\nWhat would you like to order?\n\n• Pizza 🍕\n• Burger 🍔\n• Salad 🥗\n• Drinks 🥤";
 });
 
 // Handle food category selection
-$bot->hears(['pizza', 'burger', 'salad', 'drinks'], function($context) {
+$bot->hears(['pizza', 'burger', 'salad', 'drinks'], function ($context) {
     $conversation = $context->getConversation();
 
     if ($conversation->isInState('ordering_category')) {
@@ -72,7 +73,7 @@ $bot->hears(['pizza', 'burger', 'salad', 'drinks'], function($context) {
 });
 
 // Handle quantity input
-$bot->hears('/^\d+$/', function($context) {
+$bot->hears('/^\d+$/', function ($context) {
     $conversation = $context->getConversation();
 
     if ($conversation->isInState('ordering_quantity')) {
@@ -84,17 +85,17 @@ $bot->hears('/^\d+$/', function($context) {
         $conversation->setState('ordering_confirm');
 
         return "📋 *Order Summary:*\n\n" .
-               "Customer: $userName\n" .
-               "Item: $category\n" .
-               "Quantity: $quantity\n\n" .
-               "Type `confirm` to place order or `cancel` to start over.";
+            "Customer: $userName\n" .
+            "Item: $category\n" .
+            "Quantity: $quantity\n\n" .
+            "Type `confirm` to place order or `cancel` to start over.";
     }
 
     return null; // Let other handlers process
 });
 
 // Confirm order
-$bot->hears(['confirm', '/confirm'], function($context) {
+$bot->hears(['confirm', '/confirm'], function ($context) {
     $conversation = $context->getConversation();
 
     if ($conversation->isInState('ordering_confirm')) {
@@ -108,28 +109,28 @@ $bot->hears(['confirm', '/confirm'], function($context) {
         $conversation->remove('order_quantity');
 
         return "✅ *Order Confirmed!*\n\n" .
-               "Thank you, $userName!\n" .
-               "Your order of $quantity $category will be ready in 20-30 minutes.\n\n" .
-               "Order ID: #" . rand(1000, 9999);
+            "Thank you, $userName!\n" .
+            "Your order of $quantity $category will be ready in 20-30 minutes.\n\n" .
+            "Order ID: #" . rand(1000, 9999);
     }
 
     return "There's nothing to confirm right now. Type `order` to start ordering!";
 });
 
 // Weather command
-$bot->hears('weather {city}', function($context) {
+$bot->hears('weather {city}', function ($context) {
     $city = $context->getParam('city');
     // In a real implementation, you'd call a weather API
     return "🌤️ *Weather in " . ucfirst($city) . ":*\n\n" .
-           "Temperature: 22°C\n" .
-           "Condition: Partly Cloudy\n" .
-           "Humidity: 65%\n" .
-           "Wind: 5 km/h\n\n" .
-           "_Note: This is a demo response_";
+        "Temperature: 22°C\n" .
+        "Condition: Partly Cloudy\n" .
+        "Humidity: 65%\n" .
+        "Wind: 5 km/h\n\n" .
+        "_Note: This is a demo response_";
 });
 
 // Random joke
-$bot->hears(['joke', '/joke'], function($context) {
+$bot->hears(['joke', '/joke'], function ($context) {
     $jokes = [
         "Why don't programmers like nature? It has too many bugs! 🐛",
         "How many programmers does it take to change a light bulb? None, that's a hardware problem! 💡",
@@ -142,7 +143,7 @@ $bot->hears(['joke', '/joke'], function($context) {
 });
 
 // Cancel operation
-$bot->hears(['/cancel', 'cancel'], function($context) {
+$bot->hears(['/cancel', 'cancel'], function ($context) {
     $conversation = $context->getConversation();
     $state = $conversation->getState();
 
@@ -157,7 +158,7 @@ $bot->hears(['/cancel', 'cancel'], function($context) {
 });
 
 // Fallback for unmatched messages
-$bot->fallback(function($context) {
+$bot->fallback(function ($context) {
     return "🤔 I didn't understand that.\n\nType `/help` to see available commands!";
 });
 
