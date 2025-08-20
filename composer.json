@@ -1,16 +1,25 @@
 {
     "name": "tusharkhan/chatbot",
-    "description": "A framework-agnostic PHP chatbot package that works with plain PHP, Laravel, CodeIgniter, or any custom PHP application",
+    "description": "🤖 Modern PHP chatbot framework with multi-platform support (Telegram, Slack, Web). Build intelligent conversational bots with pattern matching, state management, and middleware. Works with any PHP framework or standalone.",
     "type": "library",
     "license": "MIT",
     "keywords": [
         "chatbot",
+        "bot",
         "php",
         "telegram",
-        "whatsapp",
         "slack",
+        "whatsapp",
         "messaging",
-        "framework-agnostic"
+        "conversational-ai",
+        "framework-agnostic",
+        "laravel",
+        "codeigniter",
+        "webhook",
+        "api",
+        "conversation",
+        "middleware",
+        "pattern-matching"
     ],
     "authors": [
         {
