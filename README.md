@@ -1,3 +1,7 @@
+<center>
+<img src="chatbot.png">
+</center>
+
 # TusharKhan Chatbot Package
 
 A framework-agnostic PHP chatbot package that works seamlessly with plain PHP, Laravel, or any custom PHP application. Build powerful chatbots with multi-platform support including Web, Telegram, and Slack.
