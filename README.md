@@ -11,8 +11,6 @@ A framework-agnostic PHP chatbot package that works seamlessly with plain PHP, L
 - Total downloads: ![Packagist total downloads](https://img.shields.io/packagist/dt/tusharkhan/chatbot?style=flat-square)
 - PHP: >=8.0
 - License: MIT
-- Contributors:
-    - Tushar Khan <tushar.khan0122@gmail.com>
 
 Note: The downloads badge above is provided by Packagist/Shields.io and will display live download counts after the package is published on Packagist. If you prefer to show a static number, replace the badge with the value from Packagist.
 
