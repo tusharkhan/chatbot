@@ -8,7 +8,6 @@ A framework-agnostic PHP chatbot package that works seamlessly with plain PHP, L
 
 ## Package details
 
-- Total downloads: ![Packagist total downloads](https://img.shields.io/packagist/dt/tusharkhan/chatbot?style=flat-square)
 - PHP: >=8.0
 - License: MIT
 
